@@ -6,6 +6,8 @@ services:
     container_name: nest-api
     restart: always
     env_file: .env
+    environment:
+      - TZ=Asia/Tashkent
     ports:
       - "${APP_PORT}:3000"
     depends_on:
@@ -26,6 +28,7 @@ services:
       MYSQL_DATABASE: ${DB_NAME}
       MYSQL_USER: ${DB_USER}
       MYSQL_PASSWORD: ${DB_PASSWORD}
+      TZ: Asia/Tashkent
     ports:
       - "${DB_PORT}:3306"
     volumes:

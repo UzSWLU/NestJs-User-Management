@@ -1,11 +1,14 @@
 # Development image
 FROM node:22-alpine
 
+# Install tzdata for timezone support
+RUN apk add --no-cache tzdata
+
 WORKDIR /app
 
 COPY package*.json ./
 
-# Dev dependencies ham o‘rnatiladi
+# Dev dependencies ham o'rnatiladi
 RUN npm install
 
 COPY . .

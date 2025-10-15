@@ -1,4 +1,34 @@
-import { Controller } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Public } from './common/decorators/public.decorator';
+import { DateUtil } from './common/utils/date.util';
 
+@ApiTags('app')
 @Controller()
-export class AppController {}
+export class AppController {
+  @Public()
+  @Get()
+  @ApiOperation({ summary: 'API status and health check' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'API is running',
+    schema: {
+      example: {
+        status: 'ok',
+        message: 'User Management API is running',
+        timezone: 'Asia/Tashkent (UTC+5)',
+        currentTime: '15/10/2025 15:55:00',
+        timestamp: '2025-10-15T10:55:00.000Z'
+      }
+    }
+  })
+  getStatus() {
+    return {
+      status: 'ok',
+      message: 'User Management API is running',
+      timezone: 'Asia/Tashkent (UTC+5)',
+      currentTime: DateUtil.toReadableString(),
+      timestamp: DateUtil.toISOString(),
+    };
+  }
+}

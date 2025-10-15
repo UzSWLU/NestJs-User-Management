@@ -1,9 +1,31 @@
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 
 async function bootstrap(): Promise<void> {
+  // Set timezone to Tashkent (UTC+5)
+  process.env.TZ = process.env.TZ || 'Asia/Tashkent';
+  
   const app = await NestFactory.create(AppModule);
+  
+  // Trust proxy for correct IP detection behind reverse proxy
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.set('trust proxy', 1);
+  
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
+  app.enableCors({ origin: true, credentials: true });
+  app.use(helmet());
+  app.use(
+    rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 1000,
+      standardHeaders: true,
+      legacyHeaders: false,
+    }),
+  );
 
   // Swagger konfiguratsiyasi
   const config = new DocumentBuilder()

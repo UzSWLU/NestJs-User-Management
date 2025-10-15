@@ -10,6 +10,9 @@ RUN npm run build
 # Stage 2: Production
 FROM node:22-alpine
 
+# Install tzdata for timezone support
+RUN apk add --no-cache tzdata
+
 WORKDIR /app
 COPY --from=builder /app/package*.json ./
 RUN npm install --omit=dev
