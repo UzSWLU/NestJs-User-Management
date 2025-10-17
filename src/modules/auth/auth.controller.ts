@@ -895,7 +895,7 @@ export class AuthController {
 
             <div style="margin-top: 20px;">
               <button onclick="testAPI()">Test API with Token</button>
-              <button onclick="location.href='http://localhost:3000'">Go to Swagger</button>
+              <button onclick="location.href='${process.env.APP_URL || 'http://localhost:3000'}'">Go to Swagger</button>
             </div>
           </div>
 
@@ -909,7 +909,7 @@ export class AuthController {
 
             function testAPI() {
               const token = document.getElementById('accessToken').textContent;
-              fetch('http://localhost:3000/auth/me', {
+              fetch('${process.env.APP_URL || 'http://localhost:3000'}/api/auth/me', {
                 headers: { 'Authorization': 'Bearer ' + token }
               })
               .then(res => res.json())
