@@ -23,7 +23,7 @@ async function bootstrap(): Promise<void> {
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
   app.enableCors({ origin: true, credentials: true });
   
-  // Helmet with Swagger-compatible CSP
+  // Helmet with Swagger-compatible CSP (relaxed for HTTP)
   app.use(
     helmet({
       contentSecurityPolicy: {
@@ -33,9 +33,12 @@ async function bootstrap(): Promise<void> {
           scriptSrc: [`'self'`, `'unsafe-inline'`, `'unsafe-eval'`],
           imgSrc: [`'self'`, 'data:', 'validator.swagger.io'],
           workerSrc: [`'self'`, 'blob:'],
+          upgradeInsecureRequests: null, // Disable for HTTP server
         },
       },
       crossOriginEmbedderPolicy: false,
+      crossOriginOpenerPolicy: false,
+      crossOriginResourcePolicy: false,
     }),
   );
   
@@ -58,7 +61,12 @@ async function bootstrap(): Promise<void> {
 
   // createDocument qaytaradigan obyekt turi -> OpenAPIObject
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('/', app, document);
+  SwaggerModule.setup('/', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+    customSiteTitle: 'User Management API',
+  });
 
   await app.listen(3000);
   console.log('🚀 Swagger running at: http://localhost:3000/');
