@@ -22,7 +22,23 @@ async function bootstrap(): Promise<void> {
   
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
   app.enableCors({ origin: true, credentials: true });
-  app.use(helmet());
+  
+  // Helmet with Swagger-compatible CSP
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: [`'self'`],
+          styleSrc: [`'self'`, `'unsafe-inline'`],
+          scriptSrc: [`'self'`, `'unsafe-inline'`, `'unsafe-eval'`],
+          imgSrc: [`'self'`, 'data:', 'validator.swagger.io'],
+          workerSrc: [`'self'`, 'blob:'],
+        },
+      },
+      crossOriginEmbedderPolicy: false,
+    }),
+  );
+  
   app.use(
     rateLimit({
       windowMs: 15 * 60 * 1000,
