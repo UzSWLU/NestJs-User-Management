@@ -13,6 +13,7 @@ import { UserRole } from './user-role.entity';
 import { UserOAuthAccount } from '../oauth/user-oauth-account.entity';
 import { UserProfile } from '../oauth/user-profile.entity';
 import { UserProfilePreference } from '../oauth/user-profile-preference.entity';
+import { UserRefreshToken } from '../auth/user-refresh-token.entity';
 
 @Entity('user')
 export class User {
@@ -27,6 +28,9 @@ export class User {
 
   @Column({ unique: true, length: 255 })
   email: string;
+
+  @Column({ nullable: true, length: 255 })
+  full_name: string;
 
   @Column({ unique: true, length: 30, nullable: true })
   phone: string;
@@ -95,4 +99,7 @@ export class User {
 
   @OneToMany(() => UserProfilePreference, (pref) => pref.user)
   preferences: UserProfilePreference[];
+
+  @OneToMany(() => UserRefreshToken, (token) => token.user)
+  refreshTokens: UserRefreshToken[];
 }

@@ -26,6 +26,12 @@ export class UserOAuthAccount {
   @Column({ nullable: true })
   expires_at: Date;
 
+  @Column({ type: 'json', nullable: true })
+  oauth_data: any; // Raw OAuth user data from provider
+
+  @Column({ nullable: true })
+  last_login: Date; // Last time user logged in via this OAuth provider
+
   @CreateDateColumn()
   linked_at: Date;
 }

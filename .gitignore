@@ -39,8 +39,19 @@ lerna-debug.log*
 .env
 .env.development.local
 .env.test.local
+.env.production
 .env.production.local
 .env.local
+
+# Deployment backups
+backups/
+*.sql
+
+# SSL certificates
+nginx/ssl/
+*.pem
+*.key
+*.crt
 
 # temp directory
 .temp

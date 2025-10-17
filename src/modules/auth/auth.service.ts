@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { User } from '../../database/entities/core/user.entity';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -45,7 +45,10 @@ export class AuthService {
   // Login
   async validateUser(usernameOrEmail: string, password: string) {
     const user = await this.userRepo.findOne({
-      where: [{ username: usernameOrEmail }, { email: usernameOrEmail }],
+      where: [
+        { username: usernameOrEmail, deleted_at: IsNull(), status: 'active' },
+        { email: usernameOrEmail, deleted_at: IsNull(), status: 'active' },
+      ],
       relations: ['roles', 'roles.role'],
     });
 
@@ -300,17 +303,19 @@ export class AuthService {
    */
   async getCurrentUser(userId: number): Promise<any> {
     const user = await this.userRepo.findOne({
-      where: { id: userId },
+      where: { id: userId, deleted_at: IsNull() },
       relations: [
         'roles',
         'roles.role',
         'roles.role.permissions',
         'roles.role.permissions.permission',
+        'profile',
+        'preferences',
       ],
     });
 
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException('User not found or has been deleted');
     }
 
     // Remove sensitive data
@@ -372,9 +377,9 @@ export class AuthService {
     userAgent?: string,
   ): Promise<{ message: string }> {
     // Find user
-    const user = await this.userRepo.findOne({ where: { id: userId } });
+    const user = await this.userRepo.findOne({ where: { id: userId, deleted_at: IsNull() } });
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException('User not found or has been deleted');
     }
 
     // Verify old password

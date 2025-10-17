@@ -31,4 +31,24 @@ export class AppController {
       timestamp: DateUtil.toISOString(),
     };
   }
+
+  @Public()
+  @Get('health')
+  @ApiOperation({ summary: 'Health check endpoint for Docker/Kubernetes' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Service is healthy',
+    schema: {
+      example: {
+        status: 'ok',
+        uptime: 123.456
+      }
+    }
+  })
+  getHealth() {
+    return {
+      status: 'ok',
+      uptime: process.uptime(),
+    };
+  }
 }

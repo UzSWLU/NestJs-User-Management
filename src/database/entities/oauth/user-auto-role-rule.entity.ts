@@ -14,10 +14,19 @@ export class UserAutoRoleRule {
   role: Role;
 
   @Column({ length: 255 })
-  condition_field: string; // masalan: 'email_domain', 'department_code'
+  rule_name: string; // Rule description/name
 
   @Column({ length: 255 })
-  condition_value: string; // masalan: '@hemis.uz'
+  condition_field: string; // masalan: 'email_domain', 'department_code', 'type'
+
+  @Column({ length: 50, default: 'equals' })
+  condition_operator: string; // equals, contains, starts_with, ends_with, in
+
+  @Column({ length: 255 })
+  condition_value: string; // masalan: '@hemis.uz', 'teacher', 'student'
+
+  @Column({ default: true })
+  is_active: boolean;
 
   @CreateDateColumn()
   created_at: Date;

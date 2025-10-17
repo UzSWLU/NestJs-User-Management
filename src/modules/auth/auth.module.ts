@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthService } from './auth.service';
+import { OAuthService } from './services/oauth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
@@ -13,6 +14,11 @@ import { UserAuditLog } from '../../database/entities/auth/user-audit-log.entity
 import { UserPasswordHistory } from '../../database/entities/auth/user-password-history.entity';
 import { Role } from '../../database/entities/core/role.entity';
 import { UserRole } from '../../database/entities/core/user-role.entity';
+import { OAuthProvider } from '../../database/entities/oauth/oauth-provider.entity';
+import { UserOAuthAccount } from '../../database/entities/oauth/user-oauth-account.entity';
+import { UserAutoRoleRule } from '../../database/entities/oauth/user-auto-role-rule.entity';
+import { UserMergeHistory } from '../../database/entities/oauth/user-merge-history.entity';
+import { UserProfile } from '../../database/entities/oauth/user-profile.entity';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
@@ -38,10 +44,15 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       UserPasswordHistory,
       Role,
       UserRole,
+      OAuthProvider,
+      UserOAuthAccount,
+      UserAutoRoleRule,
+      UserMergeHistory,
+      UserProfile,
     ]),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, LocalStrategy],
-  exports: [AuthService],
+  providers: [AuthService, OAuthService, JwtStrategy, LocalStrategy],
+  exports: [AuthService, OAuthService],
 })
 export class AuthModule {}

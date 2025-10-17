@@ -11,6 +11,11 @@ async function bootstrap(): Promise<void> {
   
   const app = await NestFactory.create(AppModule);
   
+  // Set global API prefix (exclude root path for Swagger)
+  app.setGlobalPrefix('api', {
+    exclude: ['/'],
+  });
+  
   // Trust proxy for correct IP detection behind reverse proxy
   const expressApp = app.getHttpAdapter().getInstance();
   expressApp.set('trust proxy', 1);
