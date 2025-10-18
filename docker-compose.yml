@@ -12,9 +12,9 @@ services:
       - "${APP_PORT}:3000"
     depends_on:
       - db
-    volumes:
-      - .:/app
-      - /app/node_modules
+    # volumes:
+    #   - .:/app
+    #   - /app/node_modules
     networks:
       - backend
 

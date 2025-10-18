@@ -19,6 +19,7 @@ import { UserOAuthAccount } from '../../database/entities/oauth/user-oauth-accou
 import { UserAutoRoleRule } from '../../database/entities/oauth/user-auto-role-rule.entity';
 import { UserMergeHistory } from '../../database/entities/oauth/user-merge-history.entity';
 import { UserProfile } from '../../database/entities/oauth/user-profile.entity';
+import { UserProfilePreference } from '../../database/entities/oauth/user-profile-preference.entity';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
@@ -49,6 +50,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       UserAutoRoleRule,
       UserMergeHistory,
       UserProfile,
+      UserProfilePreference,
     ]),
   ],
   controllers: [AuthController],

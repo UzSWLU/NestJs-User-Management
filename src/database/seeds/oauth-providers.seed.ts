@@ -27,6 +27,13 @@ export async function seedOAuthProviders(dataSource: DataSource) {
       is_active: true,
     },
     {
+      name: 'student',
+      auth_type: 'api',
+      url_login: 'https://student.uzswlu.uz/rest/v1/auth/login',
+      url_resource_owner_details: 'https://student.uzswlu.uz/rest/v1/account/me',
+      is_active: true,
+    },
+    {
       name: 'google',
       url_authorize: 'https://accounts.google.com/o/oauth2/v2/auth',
       url_access_token: 'https://oauth2.googleapis.com/token',
@@ -52,7 +59,8 @@ export async function seedOAuthProviders(dataSource: DataSource) {
   await providerRepo.save(providers);
 
   console.log('✅ OAuth providers seeded successfully!');
-  console.log('   - hemis: Active (UZSWLU HEMIS)');
+  console.log('   - hemis: Active (UZSWLU HEMIS OAuth)');
+  console.log('   - student: Active (UZSWLU Student Portal API)');
   console.log('   - google: Inactive (ready for configuration)');
   console.log('   - oneid: Inactive (ready for configuration)');
   console.log('   - github: Inactive (ready for configuration)');

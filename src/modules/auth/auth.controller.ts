@@ -9,6 +9,7 @@ import {
   Param,
   Query,
   NotFoundException,
+  BadRequestException,
   Res,
 } from '@nestjs/common';
 import type { Response } from 'express';
@@ -601,6 +602,146 @@ export class AuthController {
     };
   }
 
+  @Post('link-external/:provider')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Link External API provider to current user',
+    description:
+      'Link an External API provider account (e.g., Student Portal) to the currently logged-in user. If the external account is already linked to another user, accounts will be merged.',
+  })
+  @ApiParam({
+    name: 'provider',
+    description: 'External API provider name (e.g., student)',
+    example: 'student',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['login', 'password'],
+      properties: {
+        login: {
+          type: 'string',
+          description: 'External API login (student ID, etc.)',
+          example: 'student123',
+        },
+        password: {
+          type: 'string',
+          description: 'External API password',
+          example: 'password123',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'External account linked successfully',
+    schema: {
+      example: {
+        success: true,
+        message: 'Student account linked successfully',
+        user: { id: 1, username: 'main_user' },
+      },
+    },
+  })
+  async linkExternalProvider(
+    @Param('provider') providerName: string,
+    @Body() body: { login: string; password: string },
+    @CurrentUser() user: any,
+    @Req() req: Request,
+  ) {
+    // Get IP and User-Agent
+    const ipAddress = (req.ip ||
+      req.headers['x-forwarded-for'] ||
+      req.socket.remoteAddress) as string;
+    const userAgent = req.headers['user-agent'];
+
+    // Get provider from database
+    const provider = await this.oauthService['providerRepo'].findOne({
+      where: { name: providerName, is_active: true, auth_type: 'api' },
+    });
+
+    if (!provider) {
+      throw new NotFoundException(
+        `External API provider "${providerName}" not found or not configured as API type`,
+      );
+    }
+
+    // Authenticate with external API to get raw user data
+    if (!provider.url_login) {
+      throw new BadRequestException(
+        `Provider "${providerName}" does not have login URL configured`,
+      );
+    }
+
+    try {
+      // Call external API
+      const axios = require('axios');
+      const authResponse = await axios.post(
+        provider.url_login,
+        {
+          login: body.login,
+          password: body.password,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+        },
+      );
+
+      // Get raw user data
+      let externalUserData = authResponse.data.data || authResponse.data;
+
+      // If token provided, fetch user info from resource endpoint
+      const accessToken =
+        authResponse.data.access_token || authResponse.data.token;
+      if (accessToken && provider.url_resource_owner_details) {
+        const userInfoResponse = await axios.get(
+          provider.url_resource_owner_details,
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              Accept: 'application/json',
+            },
+          },
+        );
+        externalUserData = userInfoResponse.data.data || userInfoResponse.data;
+      }
+
+      // Link to current user
+      await this.oauthService.linkOAuthToUser(
+        user.id,
+        provider,
+        externalUserData,
+        ipAddress,
+        userAgent,
+      );
+    } catch (error) {
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        throw new BadRequestException(
+          `Invalid credentials for ${providerName}`,
+        );
+      }
+      throw new BadRequestException(
+        `Failed to authenticate with ${providerName}: ${error.message}`,
+      );
+    }
+
+    // Get updated user info
+    const updatedUser = await this.authService.getCurrentUser(user.id);
+
+    return {
+      success: true,
+      message: `${providerName} account linked successfully`,
+      user: {
+        id: updatedUser.id,
+        username: updatedUser.username,
+        email: updatedUser.email,
+      },
+    };
+  }
+
   @Public()
   @ApiExcludeEndpoint() // Hide from Swagger documentation
   @Get('link/callback/:provider')
@@ -656,8 +797,20 @@ export class AuthController {
         );
       }
 
+      // Get IP and User-Agent
+      const ipAddress = (req.ip ||
+        req.headers['x-forwarded-for'] ||
+        req.socket.remoteAddress) as string;
+      const userAgent = req.headers['user-agent'];
+
       // Link OAuth account to existing user
-      await this.oauthService.linkOAuthToUser(userId, provider, oauthUserData);
+      await this.oauthService.linkOAuthToUser(
+        userId,
+        provider,
+        oauthUserData,
+        ipAddress,
+        userAgent,
+      );
 
       // Get user info for redirect
       const user = await this.authService.getCurrentUser(userId);
@@ -823,6 +976,8 @@ export class AuthController {
     const user = await this.oauthService.findOrCreateUser(
       provider,
       oauthUserData,
+      ipAddress,
+      userAgent,
     );
 
     // Login user (generate JWT tokens)

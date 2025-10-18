@@ -20,6 +20,9 @@ export class User {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ nullable: true })
+  companyId: number;
+
   @ManyToOne(() => Company, (company) => company.users)
   company: Company;
 

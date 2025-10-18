@@ -2,15 +2,20 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, In } from 'typeorm';
 import { User } from '../../database/entities/core/user.entity';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UserRefreshToken } from '../../database/entities/auth/user-refresh-token.entity';
 import { UserSession } from '../../database/entities/auth/user-session.entity';
 import { UserAuditLog } from '../../database/entities/auth/user-audit-log.entity';
+import { UserProfile } from '../../database/entities/oauth/user-profile.entity';
+import { UserProfilePreference } from '../../database/entities/oauth/user-profile-preference.entity';
+import { UserOAuthAccount } from '../../database/entities/oauth/user-oauth-account.entity';
+import { UserMergeHistory } from '../../database/entities/oauth/user-merge-history.entity';
 import { UserPasswordHistory } from '../../database/entities/auth/user-password-history.entity';
 import { Role } from '../../database/entities/core/role.entity';
 import { UserRole } from '../../database/entities/core/user-role.entity';
@@ -38,24 +43,57 @@ export class AuthService {
 
     @InjectRepository(UserRole)
     private readonly userRoleRepo: Repository<UserRole>,
+    
+    @InjectRepository(UserProfile)
+    private readonly profileRepo: Repository<UserProfile>,
+    
+    @InjectRepository(UserProfilePreference)
+    private readonly preferenceRepo: Repository<UserProfilePreference>,
+
+    @InjectRepository(UserOAuthAccount)
+    private readonly oauthAccountRepo: Repository<UserOAuthAccount>,
+
+    @InjectRepository(UserMergeHistory)
+    private readonly mergeHistoryRepo: Repository<UserMergeHistory>,
 
     private readonly jwtService: JwtService,
   ) {}
 
   // Login
   async validateUser(usernameOrEmail: string, password: string) {
+    // Find user by username or email (exclude deleted, only active or pending)
     const user = await this.userRepo.findOne({
       where: [
-        { username: usernameOrEmail, deleted_at: IsNull(), status: 'active' },
-        { email: usernameOrEmail, deleted_at: IsNull(), status: 'active' },
+        { username: usernameOrEmail, deleted_at: IsNull() },
+        { email: usernameOrEmail, deleted_at: IsNull() },
       ],
       relations: ['roles', 'roles.role'],
     });
 
-    if (user && (await bcrypt.compare(password, user.password_hash))) {
+    if (!user) {
+      return null;
+    }
+
+    // Check if user is blocked
+    if (user.status === 'blocked') {
+      throw new UnauthorizedException(
+        'Your account has been blocked. Please contact support.',
+      );
+    }
+
+    // Check if user is pending (not yet activated)
+    if (user.status === 'pending') {
+      throw new UnauthorizedException(
+        'Your account is pending activation. Please verify your email.',
+      );
+    }
+
+    // Validate password
+    if (await bcrypt.compare(password, user.password_hash)) {
       const { password_hash, ...result } = user;
       return result;
     }
+
     return null;
   }
 
@@ -101,6 +139,9 @@ export class AuthService {
     user.last_login_at = new Date();
     await this.userRepo.save(user);
 
+    // Save primary profile to user_profile_preferences (ustunlik tartibida)
+    await this.savePrimaryProfilePreferenceWithPriority(user.id);
+
     // Reload user with full role information
     const userWithRoles = await this.userRepo.findOne({
       where: { id: user.id },
@@ -133,6 +174,23 @@ export class AuthService {
     userAgent?: string,
     platform: 'web' | 'mobile' | 'desktop' | 'api' = 'web',
   ) {
+    // Check if username or email already exists
+    const existingUser = await this.userRepo.findOne({
+      where: [
+        { username, deleted_at: IsNull() },
+        { email, deleted_at: IsNull() },
+      ],
+    });
+
+    if (existingUser) {
+      if (existingUser.username === username) {
+        throw new ConflictException('Username already exists');
+      }
+      if (existingUser.email === email) {
+        throw new ConflictException('Email already exists');
+      }
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Check if this is the first user
@@ -144,6 +202,7 @@ export class AuthService {
       email,
       password_hash: hashedPassword,
       status: 'active',
+      companyId: 1, // Default company
     });
     await this.userRepo.save(user);
 
@@ -170,7 +229,17 @@ export class AuthService {
     });
     await this.userRoleRepo.save(userRole);
 
+    // Create default profile for user
+    const profile = new UserProfile();
+    profile.userId = user.id;
+    const savedProfile = await this.profileRepo.save(profile);
+
+    // Set as primary profile
+    user.primary_profile_id = savedProfile.id;
+    await this.userRepo.save(user);
+
     console.log(`✅ User registered as "${roleName}": ${username}`);
+    console.log(`✅ Default profile created (ID: ${profile.id})`);
 
     return this.login(user, device, ipAddress, userAgent, platform);
   }
@@ -432,15 +501,19 @@ export class AuthService {
       | 'password_change'
       | '2fa_enable'
       | '2fa_disable'
-      | 'token_revoke',
+      | 'token_revoke'
+      | 'user_merge'
+      | 'user_merged',
     ipAddress?: string,
     userAgent?: string,
+    description?: string,
   ): Promise<void> {
     const auditLog = this.auditLogRepo.create({
       user,
       event_type: eventType,
       ip_address: ipAddress,
       user_agent: userAgent,
+      description,
     });
     await this.auditLogRepo.save(auditLog);
   }
@@ -456,5 +529,139 @@ export class AuthService {
       .update(input)
       .digest('hex')
       .substring(0, 64);
+  }
+
+  /**
+   * Save primary profile preference with priority logic
+   * Priority: OAuth > External API > System
+   */
+  private async savePrimaryProfilePreferenceWithPriority(
+    userId: number,
+  ): Promise<void> {
+    try {
+      // Only set preference if it doesn't exist yet
+      const existingPreference = await this.preferenceRepo.findOne({
+        where: { user: { id: userId }, key: 'primary_profile_id' },
+      });
+
+      if (existingPreference) {
+        console.log(`   ℹ️  Primary profile already set (${existingPreference.value}), skipping auto-set for user ${userId}`);
+        return; // User already has a preference, don't override
+      }
+
+      // Find the best profile based on priority
+      const profileId = await this.findBestProfileWithPriority(userId);
+
+      if (!profileId) {
+        console.log(`   ⚠️  No profile found for user ${userId}`);
+        return;
+      }
+
+      // Create new preference
+      const user = await this.userRepo.findOne({ where: { id: userId } });
+      if (user) {
+        const preference = this.preferenceRepo.create({
+          user: user,
+          key: 'primary_profile_id',
+          value: profileId.toString(),
+        });
+        await this.preferenceRepo.save(preference);
+        console.log(`   ✅ Created primary_profile_id = ${profileId} (auto-selected) for user ${userId}`);
+      }
+    } catch (error) {
+      console.error(`   ⚠️  Failed to save preference for user ${userId}:`, error.message);
+    }
+  }
+
+  /**
+   * Find best profile with priority: OAuth > External > System
+   */
+  private async findBestProfileWithPriority(userId: number): Promise<number | null> {
+    // Get all merged user IDs
+    const mergeHistory = await this.mergeHistoryRepo.find({
+      where: { main_user: { id: userId } },
+      relations: ['main_user', 'merged_user'],
+    });
+    
+    const mergedUserIds = mergeHistory.map(h => h.merged_user.id);
+    const allUserIds = [userId, ...mergedUserIds];
+
+    console.log(`   🔍 Finding best profile for users: ${allUserIds.join(', ')}`);
+
+    // Get all profiles for these users
+    const allProfiles = await this.profileRepo.find({
+      where: { userId: In(allUserIds) },
+      relations: ['user'],
+      order: { created_at: 'ASC' },
+    });
+
+    if (allProfiles.length === 0) {
+      return null;
+    }
+
+    // Get OAuth accounts for all users to determine profile types
+    const oauthAccounts = await this.oauthAccountRepo.find({
+      where: { user: { id: In(allUserIds) } },
+      relations: ['provider', 'user'],
+    });
+
+    // Priority 1: Find OAuth profile (HEMIS, etc - auth_type = 'oauth')
+    // IMPORTANT: Check merged users FIRST (they have priority!)
+    
+    // 1a. Check merged users' OAuth profiles first
+    for (const account of oauthAccounts) {
+      if (account.provider.auth_type === 'oauth' && mergedUserIds.includes(account.user.id)) {
+        const profile = allProfiles.find(p => p.userId === account.user.id);
+        if (profile) {
+          console.log(`   🥇 Selected MERGED OAuth profile ${profile.id} (user ${account.user.id}, provider: ${account.provider.name}) - MERGED USER PRIORITY!`);
+          return profile.id;
+        }
+      }
+    }
+    
+    // 1b. Then check current user's OAuth profile
+    for (const account of oauthAccounts) {
+      if (account.provider.auth_type === 'oauth' && account.user.id === userId) {
+        const profile = allProfiles.find(p => p.userId === account.user.id);
+        if (profile) {
+          console.log(`   🥇 Selected OAuth profile ${profile.id} (user ${account.user.id}, provider: ${account.provider.name})`);
+          return profile.id;
+        }
+      }
+    }
+
+    // Priority 2: Find External API profile (Student - auth_type = 'api')
+    // 2a. Check merged users' API profiles first
+    for (const account of oauthAccounts) {
+      if (account.provider.auth_type === 'api' && mergedUserIds.includes(account.user.id)) {
+        const profile = allProfiles.find(p => p.userId === account.user.id);
+        if (profile) {
+          console.log(`   🥈 Selected MERGED API profile ${profile.id} (user ${account.user.id}, provider: ${account.provider.name}) - MERGED USER PRIORITY!`);
+          return profile.id;
+        }
+      }
+    }
+    
+    // 2b. Then check current user's API profile
+    for (const account of oauthAccounts) {
+      if (account.provider.auth_type === 'api' && account.user.id === userId) {
+        const profile = allProfiles.find(p => p.userId === account.user.id);
+        if (profile) {
+          console.log(`   🥈 Selected API profile ${profile.id} (user ${account.user.id}, provider: ${account.provider.name})`);
+          return profile.id;
+        }
+      }
+    }
+
+    // Priority 3: System profile (user's own profile)
+    const systemProfile = allProfiles.find(p => p.userId === userId);
+    if (systemProfile) {
+      console.log(`   🥉 Selected System profile ${systemProfile.id} (user ${userId})`);
+      return systemProfile.id;
+    }
+
+    // Fallback: first profile
+    console.log(`   ⚠️  Fallback to first profile ${allProfiles[0].id}`);
+    return allProfiles[0].id;
   }
 }

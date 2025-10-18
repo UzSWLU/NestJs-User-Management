@@ -4,12 +4,19 @@ import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
 
 async function bootstrap(): Promise<void> {
   // Set timezone to Tashkent (UTC+5)
   process.env.TZ = process.env.TZ || 'Asia/Tashkent';
   
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  
+  // Serve static files (uploaded logos)
+  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+    prefix: '/uploads/',
+  });
   
   // Set global API prefix (exclude root path for Swagger)
   app.setGlobalPrefix('api', {

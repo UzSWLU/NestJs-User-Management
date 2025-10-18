@@ -28,7 +28,30 @@ export async function seedRolesAndPermissions(dataSource: DataSource) {
     name: 'Role Management',
     description: 'Role and permission management',
   });
-  await groupRepo.save([userGroup, roleGroup]);
+  const companyGroup = groupRepo.create({
+    name: 'Company Management',
+    description: 'Company related permissions',
+  });
+  const oauthGroup = groupRepo.create({
+    name: 'OAuth Management',
+    description: 'OAuth providers and accounts management',
+  });
+  const autoRoleGroup = groupRepo.create({
+    name: 'Auto Role Rules',
+    description: 'Auto role assignment rules management',
+  });
+  const mergeGroup = groupRepo.create({
+    name: 'User Merge',
+    description: 'User account merging permissions',
+  });
+  await groupRepo.save([
+    userGroup,
+    roleGroup,
+    companyGroup,
+    oauthGroup,
+    autoRoleGroup,
+    mergeGroup,
+  ]);
 
   // Create Permissions
   const permissions = await permissionRepo.save([
@@ -37,6 +60,11 @@ export async function seedRolesAndPermissions(dataSource: DataSource) {
     { name: 'users.create', description: 'Create users', group: userGroup },
     { name: 'users.update', description: 'Update users', group: userGroup },
     { name: 'users.delete', description: 'Delete users', group: userGroup },
+    {
+      name: 'users.assignRole',
+      description: 'Assign roles to users',
+      group: userGroup,
+    },
 
     // Role permissions
     { name: 'roles.read', description: 'View roles', group: roleGroup },
@@ -65,6 +93,106 @@ export async function seedRolesAndPermissions(dataSource: DataSource) {
       description: 'Delete permissions',
       group: roleGroup,
     },
+
+    // Company permissions
+    {
+      name: 'companies.read',
+      description: 'View companies',
+      group: companyGroup,
+    },
+    {
+      name: 'companies.create',
+      description: 'Create companies',
+      group: companyGroup,
+    },
+    {
+      name: 'companies.update',
+      description: 'Update companies',
+      group: companyGroup,
+    },
+    {
+      name: 'companies.delete',
+      description: 'Delete companies',
+      group: companyGroup,
+    },
+    {
+      name: 'companies.uploadLogo',
+      description: 'Upload company logos',
+      group: companyGroup,
+    },
+
+    // OAuth Provider permissions
+    {
+      name: 'oauth.providers.read',
+      description: 'View OAuth providers',
+      group: oauthGroup,
+    },
+    {
+      name: 'oauth.providers.create',
+      description: 'Create OAuth providers',
+      group: oauthGroup,
+    },
+    {
+      name: 'oauth.providers.update',
+      description: 'Update OAuth providers',
+      group: oauthGroup,
+    },
+    {
+      name: 'oauth.providers.delete',
+      description: 'Delete OAuth providers',
+      group: oauthGroup,
+    },
+
+    // OAuth Account permissions
+    {
+      name: 'oauth.accounts.read',
+      description: 'View OAuth accounts',
+      group: oauthGroup,
+    },
+    {
+      name: 'oauth.accounts.link',
+      description: 'Link OAuth accounts',
+      group: oauthGroup,
+    },
+    {
+      name: 'oauth.accounts.unlink',
+      description: 'Unlink OAuth accounts',
+      group: oauthGroup,
+    },
+
+    // Auto Role Rules permissions
+    {
+      name: 'autoRoleRules.read',
+      description: 'View auto role rules',
+      group: autoRoleGroup,
+    },
+    {
+      name: 'autoRoleRules.create',
+      description: 'Create auto role rules',
+      group: autoRoleGroup,
+    },
+    {
+      name: 'autoRoleRules.update',
+      description: 'Update auto role rules',
+      group: autoRoleGroup,
+    },
+    {
+      name: 'autoRoleRules.delete',
+      description: 'Delete auto role rules',
+      group: autoRoleGroup,
+    },
+
+    // User Merge permissions
+    {
+      name: 'userMerge.read',
+      description: 'View merge history',
+      group: mergeGroup,
+    },
+    {
+      name: 'userMerge.merge',
+      description: 'Merge user accounts',
+      group: mergeGroup,
+    },
   ]);
 
   // Create Roles
@@ -92,7 +220,26 @@ export async function seedRolesAndPermissions(dataSource: DataSource) {
     is_system: true,
   });
 
-  await roleRepo.save([creatorRole, adminRole, managerRole, userRole]);
+  const employeeRole = roleRepo.create({
+    name: 'employee',
+    description: 'Employee with standard access',
+    is_system: true,
+  });
+
+  const studentRole = roleRepo.create({
+    name: 'student',
+    description: 'Student with basic access',
+    is_system: true,
+  });
+
+  await roleRepo.save([
+    creatorRole,
+    adminRole,
+    managerRole,
+    userRole,
+    employeeRole,
+    studentRole,
+  ]);
 
   // Assign all permissions to creator and admin
   const allPermissions = permissions.map((perm) =>
@@ -116,9 +263,18 @@ export async function seedRolesAndPermissions(dataSource: DataSource) {
   // No permissions for regular user role by default
 
   console.log('✅ Roles and permissions seeded successfully!');
-  console.log('   - creator: Full access (all permissions)');
-  console.log('   - admin: Full access (all permissions)');
+  console.log(`   - creator: Full access (${permissions.length} permissions)`);
+  console.log(`   - admin: Full access (${permissions.length} permissions)`);
   console.log('   - manager: Read-only access');
   console.log('   - user: No default permissions');
+  console.log('   - employee: No default permissions');
+  console.log('   - student: No default permissions');
+  console.log('');
+  console.log('📋 Permission Groups:');
+  console.log('   - User Management (5 permissions)');
+  console.log('   - Role Management (8 permissions)');
+  console.log('   - Company Management (5 permissions)');
+  console.log('   - OAuth Management (7 permissions)');
+  console.log('   - Auto Role Rules (4 permissions)');
+  console.log('   - User Merge (2 permissions)');
 }
-

@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserMergeHistory } from '../../database/entities/oauth/user-merge-history.entity';
 import { User } from '../../database/entities/core/user.entity';
+import { UserAuditLog } from '../../database/entities/auth/user-audit-log.entity';
 import { MergeUsersDto } from './dto/merge-users.dto';
 import { PaginationDto, PaginatedResponse } from '../../common/dto/pagination.dto';
 
@@ -17,6 +18,8 @@ export class UserMergeService {
     private readonly mergeHistoryRepo: Repository<UserMergeHistory>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(UserAuditLog)
+    private readonly auditLogRepo: Repository<UserAuditLog>,
   ) {}
 
   async mergeUsers(dto: MergeUsersDto): Promise<UserMergeHistory> {
@@ -45,13 +48,42 @@ export class UserMergeService {
     });
     const saved = await this.mergeHistoryRepo.save(mergeHistory);
 
-    // Soft delete merged user
-    mergedUser.deleted_at = new Date();
+    // Block merged user (NOT soft delete - user saqlanadi!)
+    mergedUser.status = 'blocked';
     await this.userRepo.save(mergedUser);
+
+    // Log merge event for both users
+    await this.logAudit(
+      mainUser,
+      'user_merge',
+      `Merged user ${mergedUser.id} (${mergedUser.username}) into this account`,
+    );
+    await this.logAudit(
+      mergedUser,
+      'user_merged',
+      `This account was merged into user ${mainUser.id} (${mainUser.username})`,
+    );
 
     console.log(`✅ User ${dto.mergedUserId} merged into ${dto.mainUserId}`);
 
     return saved;
+  }
+
+  private async logAudit(
+    user: User,
+    eventType: 'user_merge' | 'user_merged',
+    description: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<void> {
+    const auditLog = this.auditLogRepo.create({
+      user,
+      event_type: eventType,
+      description,
+      ip_address: ipAddress,
+      user_agent: userAgent,
+    });
+    await this.auditLogRepo.save(auditLog);
   }
 
   async findAll(pagination: PaginationDto): Promise<PaginatedResponse<UserMergeHistory>> {

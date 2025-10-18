@@ -6,8 +6,11 @@ export class UserProfile {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ nullable: true })
+  userId: number;
+
   @OneToOne(() => User, (user) => user.profile, { onDelete: 'CASCADE' })
-  @JoinColumn()
+  @JoinColumn({ name: 'userId' })
   user: User;
 
   @Column({ length: 100, nullable: true })

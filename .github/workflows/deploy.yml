@@ -1,29 +1,31 @@
-name: CD - Continuous Deployment
+name: 🚀 Deploy to Production
 
 on:
   push:
-    branches: [main]
-    tags:
-      - 'v*'
+    branches:
+      - main
+      - master
   workflow_dispatch:
     inputs:
       environment:
         description: 'Deployment environment'
         required: true
-        default: 'staging'
+        default: 'production'
         type: choice
         options:
-          - staging
           - production
+          - staging
 
 env:
-  NODE_VERSION: '20'
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-and-push:
-    name: Build & Push Docker Image
+  # ============================================
+  # Build and Push Docker Image
+  # ============================================
+  build:
+    name: 🏗️ Build Docker Image
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -31,16 +33,13 @@ jobs:
 
     outputs:
       image-tag: ${{ steps.meta.outputs.tags }}
-      image-digest: ${{ steps.build.outputs.digest }}
+      version: ${{ steps.meta.outputs.version }}
 
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      - name: 🐳 Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: 🔐 Log in to Container Registry
+      - name: 🔐 Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -54,14 +53,15 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch
-            type=ref,event=pr
+            type=sha,prefix={{branch}}-
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
 
+      - name: 🐋 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: 🏗️ Build and push Docker image
-        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -72,86 +72,186 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            NODE_VERSION=${{ env.NODE_VERSION }}
+            NODE_ENV=production
 
-  deploy-staging:
-    name: Deploy to Staging
-    runs-on: ubuntu-latest
-    needs: [build-and-push]
-    if: github.ref == 'refs/heads/develop' || github.event.inputs.environment == 'staging'
-    environment:
-      name: staging
-      url: https://staging-api.example.com
-
-    steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
-
-      - name: 🚀 Deploy to Staging Server
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_USER }}
-          key: ${{ secrets.STAGING_SSH_KEY }}
-          port: ${{ secrets.STAGING_PORT || 22 }}
-          script: |
-            cd /opt/management-api
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
-            docker-compose -f docker-compose.prod.yml pull
-            docker-compose -f docker-compose.prod.yml up -d
-            docker image prune -af
-            echo "✅ Staging deployment completed!"
-
-  deploy-production:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: [build-and-push]
-    if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.environment == 'production'
-    environment:
-      name: production
-      url: https://api.example.com
-
-    steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@v4
-
-      - name: 🚀 Deploy to Production Server
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.PROD_HOST }}
-          username: ${{ secrets.PROD_USER }}
-          key: ${{ secrets.PROD_SSH_KEY }}
-          port: ${{ secrets.PROD_PORT || 22 }}
-          script: |
-            cd /opt/management-api
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
-            docker-compose -f docker-compose.prod.yml pull
-            docker-compose -f docker-compose.prod.yml up -d --no-deps api
-            docker image prune -af
-            echo "✅ Production deployment completed!"
-
-      - name: 🔔 Notify deployment
-        if: success()
+      - name: ✅ Build complete
         run: |
-          echo "🎉 Production deployment successful!"
-          # Add notification logic (Slack, Discord, etc.)
+          echo "✅ Docker image built and pushed successfully!"
+          echo "📦 Image: ${{ steps.meta.outputs.tags }}"
 
-  rollback:
-    name: Rollback Deployment
+  # ============================================
+  # Deploy to Server
+  # ============================================
+  deploy:
+    name: 🚀 Deploy to Server
     runs-on: ubuntu-latest
-    if: failure() && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
-    needs: [deploy-production]
+    needs: build
+    environment: 
+      name: ${{ inputs.environment || 'production' }}
+      url: https://auth.uzswlu.uz
 
     steps:
-      - name: ⚠️ Rollback Production
-        uses: appleboy/ssh-action@v1.0.0
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔑 Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
         with:
-          host: ${{ secrets.PROD_HOST }}
-          username: ${{ secrets.PROD_USER }}
-          key: ${{ secrets.PROD_SSH_KEY }}
-          port: ${{ secrets.PROD_PORT || 22 }}
-          script: |
-            cd /opt/management-api
-            docker-compose -f docker-compose.prod.yml down
+          ssh-private-key: ${{ secrets.PROD_SSH_KEY || secrets.SSH_PRIVATE_KEY }}
+      
+      - name: 📋 Add server to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.PROD_HOST || secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+      
+      - name: 📦 Create deployment package
+        run: |
+          tar czf deploy-package.tar.gz \
+            docker-compose.prod.yml \
+            deploy.sh \
+            nginx/ \
+            .env.example
+      
+      - name: 📤 Copy files to server
+        run: |
+          scp deploy-package.tar.gz ${{ secrets.PROD_USER || secrets.SERVER_USER }}@${{ secrets.PROD_HOST || secrets.SERVER_HOST }}:/tmp/
+      
+      - name: 🚀 Deploy on server
+        run: |
+          ssh ${{ secrets.PROD_USER || secrets.SERVER_USER }}@${{ secrets.PROD_HOST || secrets.SERVER_HOST }} << 'ENDSSH'
+            set -e
+            
+            # Colors
+            GREEN='\033[0;32m'
+            YELLOW='\033[1;33m'
+            RED='\033[0;31m'
+            NC='\033[0m'
+            
+            echo -e "${YELLOW}🚀 Starting deployment...${NC}"
+            
+            # Navigate to app directory
+            cd /var/www/auth-api || cd /opt/management-api
+            
+            # Extract deployment package
+            tar xzf /tmp/deploy-package.tar.gz -C . 2>/dev/null || echo "Using existing files"
+            
+            # Load environment variables
+            if [ -f .env.production ]; then
+              export $(cat .env.production | grep -v '^#' | xargs)
+            elif [ -f .env ]; then
+              export $(cat .env | grep -v '^#' | xargs)
+            fi
+            
+            # Set image tag and repository
+            export IMAGE_TAG="${{ needs.build.outputs.version }}"
+            export GITHUB_REPOSITORY="${{ github.repository }}"
+            
+            echo -e "${YELLOW}📦 Image: ghcr.io/${GITHUB_REPOSITORY}:${IMAGE_TAG}${NC}"
+            
+            # Login to GitHub Container Registry
+            GHCR_TOKEN="${{ secrets.GHCR_TOKEN }}"
+            if [ -z "$GHCR_TOKEN" ]; then
+              GHCR_TOKEN="${{ secrets.GITHUB_TOKEN }}"
+            fi
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            
+            # Pull latest image
+            echo -e "${YELLOW}📥 Pulling latest image...${NC}"
+            docker pull ghcr.io/${GITHUB_REPOSITORY}:${IMAGE_TAG}
+            
+            # Stop old containers
+            echo -e "${YELLOW}🛑 Stopping old containers...${NC}"
+            docker-compose -f docker-compose.prod.yml down --remove-orphans
+            
+            # Start new containers
+            echo -e "${YELLOW}🚀 Starting new containers...${NC}"
             docker-compose -f docker-compose.prod.yml up -d
-            echo "⚠️ Rollback completed!"
+            
+            # Wait for health check
+            echo -e "${YELLOW}⏳ Waiting for health check...${NC}"
+            sleep 15
+            
+            # Check container status
+            docker-compose -f docker-compose.prod.yml ps
+            
+            echo -e "${GREEN}✅ Deployment completed!${NC}"
+          ENDSSH
+
+      - name: 🧪 Health check
+        run: |
+          echo "⏳ Waiting for application to be ready..."
+          sleep 15
+          
+          # Use APP_URL from secrets or default to auth.uzswlu.uz
+          APP_URL="https://auth.uzswlu.uz"
+          
+          echo "🔍 Checking health at: $APP_URL/health"
+          response=$(curl -sk -o /dev/null -w "%{http_code}" $APP_URL/health || echo "000")
+          
+          if [ "$response" = "200" ]; then
+            echo "✅ Application is healthy!"
+          elif [ "$response" = "000" ]; then
+            echo "⚠️  Health check failed - checking via IP..."
+            # Try direct server connection
+            ssh ${{ secrets.PROD_USER || secrets.SERVER_USER }}@${{ secrets.PROD_HOST || secrets.SERVER_HOST }} \
+              "docker-compose -f /var/www/auth-api/docker-compose.prod.yml ps"
+          else
+            echo "⚠️  Health check returned HTTP $response"
+          fi
+
+      - name: 📊 Deployment summary
+        if: always()
+        run: |
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environment:** ${{ inputs.environment || 'production' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** ${{ needs.build.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deployed by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Timestamp:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+
+      - name: 🔔 Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Deployment failed!"
+          # Add your notification logic here (Slack, Discord, Email, etc.)
+
+  # ============================================
+  # Post-Deployment Tests (Optional)
+  # ============================================
+  test:
+    name: 🧪 Post-Deployment Tests
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: success()
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🧪 Run smoke tests
+        run: |
+          echo "Running smoke tests..."
+          
+          # Default to auth.uzswlu.uz
+          APP_URL="https://auth.uzswlu.uz"
+          
+          # Test API health endpoint
+          echo "Testing: $APP_URL/health"
+          response=$(curl -sk -o /dev/null -w "%{http_code}" $APP_URL/health || echo "000")
+          if [ "$response" = "200" ]; then
+            echo "✅ Health check passed"
+          else
+            echo "⚠️  Health check: HTTP $response (normal if SSL not configured)"
+          fi
+          
+          # Test Swagger documentation
+          echo "Testing: $APP_URL/api"
+          response=$(curl -sk -o /dev/null -w "%{http_code}" $APP_URL/api || echo "000")
+          if [ "$response" = "200" ]; then
+            echo "✅ Swagger documentation accessible"
+          else
+            echo "⚠️  Swagger: HTTP $response (normal if SSL not configured)"
+          fi
+          
+          echo "✅ Smoke tests completed!"

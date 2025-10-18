@@ -12,7 +12,9 @@ import { UserAutoRoleRule } from '../../../database/entities/oauth/user-auto-rol
 import { UserRole } from '../../../database/entities/core/user-role.entity';
 import { Role } from '../../../database/entities/core/role.entity';
 import { UserMergeHistory } from '../../../database/entities/oauth/user-merge-history.entity';
+import { UserAuditLog } from '../../../database/entities/auth/user-audit-log.entity';
 import { UserProfile } from '../../../database/entities/oauth/user-profile.entity';
+import { UserProfilePreference } from '../../../database/entities/oauth/user-profile-preference.entity';
 import axios from 'axios';
 import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
@@ -36,6 +38,10 @@ export class OAuthService {
     private readonly mergeHistoryRepo: Repository<UserMergeHistory>,
     @InjectRepository(UserProfile)
     private readonly userProfileRepo: Repository<UserProfile>,
+    @InjectRepository(UserProfilePreference)
+    private readonly preferenceRepo: Repository<UserProfilePreference>,
+    @InjectRepository(UserAuditLog)
+    private readonly auditLogRepo: Repository<UserAuditLog>,
   ) {}
 
   /**
@@ -216,6 +222,8 @@ export class OAuthService {
   async findOrCreateUser(
     provider: OAuthProvider,
     oauthUserData: any,
+    ipAddress?: string,
+    userAgent?: string,
   ): Promise<User> {
     // Extract user data from provider response
     const providerUserId = this.extractProviderUserId(
@@ -238,32 +246,102 @@ export class OAuthService {
     });
 
     if (existingOAuthAccount) {
+      let user = existingOAuthAccount.user;
+
+      // Check if user is blocked (merged user)
+      if (user.status === 'blocked') {
+        console.log(
+          `⚠️  User ${user.id} (${user.username}) is blocked, checking for merge...`,
+        );
+
+        // Check if this user was merged to another user
+        const mergeHistory = await this.mergeHistoryRepo.findOne({
+          where: { merged_user: { id: user.id } },
+          relations: ['main_user'],
+        });
+
+        if (mergeHistory && mergeHistory.main_user) {
+          // User was merged, use the main user instead
+          user = mergeHistory.main_user;
+          console.log(
+            `✅ Found merge: redirecting to main user ${user.id} (${user.username})`,
+          );
+
+          // Update OAuth account to point to main user (if not already)
+          if (existingOAuthAccount.user.id !== user.id) {
+            existingOAuthAccount.user = user;
+            await this.oauthAccountRepo.save(existingOAuthAccount);
+            console.log(`✅ OAuth account updated to main user`);
+          }
+
+          // Check if main user is also blocked
+          if (user.status === 'blocked') {
+            throw new BadRequestException(
+              'Your account has been blocked. Please contact support.',
+            );
+          }
+        } else {
+          // User is blocked but not merged
+          throw new BadRequestException(
+            'Your account has been blocked. Please contact support.',
+          );
+        }
+      }
+
       // Update last_login and OAuth data
       existingOAuthAccount.oauth_data = oauthUserData;
       existingOAuthAccount.last_login = new Date();
       await this.oauthAccountRepo.save(existingOAuthAccount);
 
-      // Update user profile with latest data from provider
-      const user = existingOAuthAccount.user;
-      if (email && email !== user.email) user.email = email;
-      if (fullName && fullName !== user.full_name) user.full_name = fullName;
-      if (phone && phone !== user.phone) user.phone = phone;
-      if (avatar && avatar !== user.avatar) user.avatar = avatar;
-      if (phone && !user.phone_verified) user.phone_verified = true;
-      await this.userRepo.save(user);
+      // Update user profile with latest data from provider (skip duplicates)
+      let userUpdated = false;
+      
+      // Check email before updating
+      if (email && email !== user.email) {
+        const emailExists = await this.userRepo.findOne({
+          where: { email, deleted_at: IsNull() },
+        });
+        if (!emailExists || emailExists.id === user.id) {
+          user.email = email;
+          userUpdated = true;
+        }
+      }
+      
+      // Update other fields
+      if (fullName && fullName !== user.full_name) {
+        user.full_name = fullName;
+        userUpdated = true;
+      }
+      if (phone && phone !== user.phone) {
+        const phoneExists = await this.userRepo.findOne({
+          where: { phone, deleted_at: IsNull() },
+        });
+        if (!phoneExists || phoneExists.id === user.id) {
+          user.phone = phone;
+          userUpdated = true;
+        }
+      }
+      if (avatar && avatar !== user.avatar) {
+        user.avatar = avatar;
+        userUpdated = true;
+      }
+      if (phone && !user.phone_verified) {
+        user.phone_verified = true;
+        userUpdated = true;
+      }
+      
+      if (userUpdated) {
+        await this.userRepo.save(user);
+      }
 
       // Update/Create UserProfile with detailed info from provider
       await this.upsertUserProfile(user, provider.name, oauthUserData);
 
       // Apply auto-role rules for existing users too (in case new rules were added)
       console.log(`   🔄 Checking auto-role rules for existing user...`);
-      await this.assignAutoRoles(
-        existingOAuthAccount.user,
-        provider,
-        oauthUserData,
-      );
+      await this.assignAutoRoles(user, provider, oauthUserData);
 
-      return existingOAuthAccount.user;
+      return user;
     }
 
     // Check if user exists by email (exclude soft deleted)
@@ -278,6 +356,10 @@ export class OAuthService {
         Math.random().toString(36).slice(-12);
       const passwordHash = await bcrypt.hash(randomPassword, 10);
 
+      // Check if this is the first user
+      const userCount = await this.userRepo.count();
+      const isFirstUser = userCount === 0;
+
       user = this.userRepo.create({
         username: username || `${provider.name}_${providerUserId}`,
         email: email || `${providerUserId}@${provider.name}.oauth`,
@@ -288,14 +370,30 @@ export class OAuthService {
         status: 'active',
         email_verified: !!email, // If email is provided, consider it verified
         phone_verified: !!phone, // If phone is provided, consider it verified
+        companyId: 1, // Default company
       });
       user = await this.userRepo.save(user);
 
       // Create UserProfile with detailed info from provider
       await this.upsertUserProfile(user, provider.name, oauthUserData);
 
-      // Assign auto-roles based on rules
-      await this.assignAutoRoles(user, provider, oauthUserData);
+      // If first user, assign creator role directly
+      if (isFirstUser) {
+        const creatorRole = await this.roleRepo.findOne({
+          where: { name: 'creator' },
+        });
+        if (creatorRole) {
+          const userRole = this.userRoleRepo.create({
+            user: user,
+            role: creatorRole,
+          });
+          await this.userRoleRepo.save(userRole);
+          console.log(`✅ First user (${user.username}) assigned as "creator"`);
+        }
+      } else {
+        // Assign auto-roles based on rules for other users
+        await this.assignAutoRoles(user, provider, oauthUserData);
+      }
     }
 
     // Create OAuth account link
@@ -318,6 +416,8 @@ export class OAuthService {
     userId: number,
     provider: OAuthProvider,
     oauthUserData: any,
+    ipAddress?: string,
+    userAgent?: string,
   ): Promise<void> {
     const providerUserId = this.extractProviderUserId(
       provider.name,
@@ -433,18 +533,33 @@ export class OAuthService {
         await this.mergeHistoryRepo.save(mergeHistory);
         console.log(`   📝 Merge history recorded (ID: ${mergeHistory.id})`);
 
-        // Soft delete old user and block status
-        oldUser.deleted_at = new Date();
+        // Block old user (NO soft delete - user saqlanadi!)
         oldUser.status = 'blocked'; // Block the merged user
         await this.userRepo.save(oldUser);
         console.log(
-          `   🗑️  Soft deleted and blocked old user ${oldUser.id} (${oldUser.username})`,
+          `   🔒 Blocked old user ${oldUser.id} (${oldUser.username}) - user saqlanadi`,
+        );
+
+        // Log merge events to audit logs
+        await this.logAudit(
+          targetUser,
+          'user_merge',
+          `Merged user ${oldUser.id} (${oldUser.username}) into this account via OAuth`,
+          ipAddress,
+          userAgent,
+        );
+        await this.logAudit(
+          oldUser,
+          'user_merged',
+          `This account was merged into user ${targetUser.id} (${targetUser.username}) via OAuth`,
+          ipAddress,
+          userAgent,
         );
 
         console.log(`✅ Account merge completed successfully!`);
         console.log(`   Main User: ${targetUser.id} (${targetUser.username})`);
         console.log(
-          `   Merged User: ${oldUser.id} (${oldUser.username}) - soft deleted`,
+          `   Merged User: ${oldUser.id} (${oldUser.username}) - blocked`,
         );
         return;
       }
@@ -763,7 +878,12 @@ export class OAuthService {
       }
 
       // Find or create user
-      const user = await this.findOrCreateUser(provider, userInfo);
+      const user = await this.findOrCreateUser(
+        provider,
+        userInfo,
+        ipAddress,
+        userAgent,
+      );
 
       // Return user object (JWT tokens will be generated in controller)
       return {
@@ -845,12 +965,51 @@ export class OAuthService {
         await this.userProfileRepo.save(profile);
         console.log(`   ✅ Created UserProfile for user ${user.username}`);
       }
+
+      // Save to user_profile_preferences (provider profile ustunlik qiladi)
+      await this.savePrimaryProfilePreference(user.id, profile.id);
     } catch (error) {
       console.error(
         `   ⚠️  Failed to save UserProfile for user ${user.username}:`,
         error.message,
       );
       // Don't throw - allow login to continue even if profile save fails
+    }
+  }
+
+  /**
+   * Save primary profile preference (provider login - ALWAYS update to provider profile)
+   */
+  private async savePrimaryProfilePreference(
+    userId: number,
+    profileId: number,
+  ): Promise<void> {
+    try {
+      // Check if preference exists
+      let preference = await this.preferenceRepo.findOne({
+        where: { user: { id: userId }, key: 'primary_profile_id' },
+      });
+
+      if (preference) {
+        // ALWAYS update to provider profile (provider ustunlik qiladi)
+        preference.value = profileId.toString();
+        await this.preferenceRepo.save(preference);
+        console.log(`   🥇 Updated primary_profile_id = ${profileId} (PROVIDER PROFILE USTUNLIK!) for user ${userId}`);
+      } else {
+        // Create new preference
+        const user = await this.userRepo.findOne({ where: { id: userId } });
+        if (user) {
+          preference = this.preferenceRepo.create({
+            user: user,
+            key: 'primary_profile_id',
+            value: profileId.toString(),
+          });
+          await this.preferenceRepo.save(preference);
+          console.log(`   🥇 Created primary_profile_id = ${profileId} (PROVIDER PROFILE) for user ${userId}`);
+        }
+      }
+    } catch (error) {
+      console.error(`   ⚠️  Failed to save preference for user ${userId}:`, error.message);
     }
   }
 
@@ -918,5 +1077,44 @@ export class OAuthService {
     return {
       avatar_url: data.avatar || data.picture || data.image || undefined,
     };
+  }
+
+  /**
+   * Log audit event
+   */
+  private async logAudit(
+    user: User,
+    eventType: 'user_merge' | 'user_merged',
+    description: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<void> {
+    console.log(`\n🔍 === AUDIT LOG DEBUG === `);
+    console.log(`   Event Type: ${eventType}`);
+    console.log(`   User ID: ${user.id}`);
+    console.log(`   Username: ${user.username}`);
+    console.log(`   IP Address: ${ipAddress || 'NULL'}`);
+    console.log(`   User Agent: ${userAgent || 'NULL'}`);
+    console.log(`   Description: ${description}`);
+    
+    const auditLog = this.auditLogRepo.create({
+      user,
+      event_type: eventType,
+      description,
+      ip_address: ipAddress,
+      user_agent: userAgent,
+    });
+    
+    console.log(`   Audit Log Object:`, JSON.stringify({
+      userId: user.id,
+      event_type: eventType,
+      ip_address: ipAddress,
+      user_agent: userAgent,
+      description,
+    }));
+    
+    await this.auditLogRepo.save(auditLog);
+    console.log(`   ✅ Audit log saved to database!`);
+    console.log(`=== END AUDIT LOG DEBUG ===\n`);
   }
 }

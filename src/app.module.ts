@@ -30,6 +30,8 @@ import { OAuthProvidersModule } from './modules/oauth-providers/oauth-providers.
 import { OAuthAccountsModule } from './modules/oauth-accounts/oauth-accounts.module';
 import { UserMergeModule } from './modules/user-merge/user-merge.module';
 import { AutoRoleRulesModule } from './modules/auto-role-rules/auto-role-rules.module';
+import { CompaniesModule } from './modules/companies/companies.module';
+import { UserProfilesModule } from './modules/user-profiles/user-profiles.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -76,12 +78,14 @@ import { DatabaseModule } from './database/database.module';
     }),
     AuthModule,
     UsersModule,
+    UserProfilesModule,
     RolesModule,
     PermissionsModule,
     OAuthProvidersModule,
     OAuthAccountsModule,
     UserMergeModule,
     AutoRoleRulesModule,
+    CompaniesModule,
   ],
   controllers: [AppController],
   providers: [

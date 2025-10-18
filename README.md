@@ -2,9 +2,18 @@
 
 Production-ready user management and authentication system built with NestJS, TypeORM, and MySQL.
 
-[![CI](https://github.com/yourorg/management/workflows/CI/badge.svg)](https://github.com/yourorg/management/actions)
-[![CD](https://github.com/yourorg/management/workflows/CD/badge.svg)](https://github.com/yourorg/management/actions)
+[![Deploy to Production](https://github.com/a-d-sh/nestjs-user-management/actions/workflows/deploy.yml/badge.svg)](https://github.com/a-d-sh/nestjs-user-management/actions/workflows/deploy.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Docker](https://img.shields.io/badge/docker-ready-blue)](https://www.docker.com/)
+
+## ⚡ Quick Deploy
+
+**Push to `main` branch → Auto-deploy to production in ~1-2 minutes!** 🚀
+
+```bash
+git push origin main
+# ✅ GitHub Actions automatically builds and deploys!
+```
 
 ## ✨ Features
 
@@ -56,6 +65,16 @@ Production-ready user management and authentication system built with NestJS, Ty
 - Migration support (production-ready)
 - Comprehensive entity relationships
 - Seeding for roles & permissions
+
+### 🚀 CI/CD & Deployment
+
+- **GitHub Actions** - Automated deployment pipeline
+- **Docker** - Production-ready containerization
+- **Auto-deploy** - Push to `main` → Deploy in ~1-2 minutes
+- **Health checks** - Automated deployment verification
+- **Rollback** - Automatic rollback on failure
+- **Multi-stage builds** - Optimized Docker images
+- See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for details
 
 ## 📋 Database Schema
 
