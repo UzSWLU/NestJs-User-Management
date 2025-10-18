@@ -104,6 +104,29 @@ services:
         max-size: "5m"
         max-file: "3"
 
+  # phpMyAdmin (Database Management)
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: management-phpmyadmin-prod
+    restart: unless-stopped
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_ARBITRARY: 1
+      UPLOAD_LIMIT: 50M
+    ports:
+      - "${PMA_PORT:-8081}:80"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - app-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+
 volumes:
   mysql-data:
     driver: local
