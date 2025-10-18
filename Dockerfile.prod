@@ -50,6 +50,9 @@ COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
 COPY --chown=nestjs:nodejs tsconfig.json ./
 COPY --chown=nestjs:nodejs nest-cli.json ./
 
+# Create uploads directory with correct permissions
+RUN mkdir -p uploads && chown -R nestjs:nodejs uploads
+
 # Switch to non-root user
 USER nestjs
 
