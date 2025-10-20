@@ -103,3 +103,7 @@ Write-Host "   https://auth.uzswlu.uz/"
 Write-Host "   https://auth.uzswlu.uz/api/health"
 Write-Host ""
 
+
+
+
+

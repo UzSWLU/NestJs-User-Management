@@ -92,3 +92,7 @@ Endi local va server database bir xil! 🎉
 
 - Server: http://172.22.0.19:8081 (phpmyadmin)
 - API: https://auth.uzswlu.uz/
+
+
+
+

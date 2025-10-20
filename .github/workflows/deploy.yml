@@ -15,7 +15,7 @@ jobs:
   deploy:
     name: Deploy to Production Server
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
@@ -31,10 +31,10 @@ jobs:
           SERVER_USER: ${{ secrets.SERVER_USER || 'root' }}
         run: |
           echo "🌐 Connecting to $SERVER_USER@$SERVER_HOST..."
-          
+
           # Add server to known hosts
           ssh-keyscan -H $SERVER_HOST >> ~/.ssh/known_hosts
-          
+
           # Deploy
           ssh $SERVER_USER@$SERVER_HOST << 'ENDSSH'
             set -e
@@ -78,9 +78,9 @@ jobs:
         run: |
           echo "🔍 Checking application health..."
           sleep 3
-          
+
           HEALTH_CHECK=$(curl -s -o /dev/null -w "%{http_code}" $APP_URL/api/health || echo "000")
-          
+
           if [ "$HEALTH_CHECK" = "200" ]; then
             echo "✅ Application is healthy!"
             echo "🌐 URL: $APP_URL"

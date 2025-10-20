@@ -101,3 +101,7 @@ echo -e "${BLUE}API URL: https://auth.uzswlu.uz${NC}"
 
 exit 0
 
+
+
+
+
