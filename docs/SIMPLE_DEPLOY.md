@@ -134,4 +134,3 @@ deploy  (agar alias sozlagan bo'lsangiz)
 ```
 
 Oddiy, tez, ishonchli! 🎉
-
