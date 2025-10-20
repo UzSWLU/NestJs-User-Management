@@ -1,7 +1,7 @@
 services:
   # NestJS API
   api:
-    image: ghcr.io/${GITHUB_REPOSITORY:-a-d-sh/nestjs-user-management}:${IMAGE_TAG:-latest}
+    image: ghcr.io/a-d-sh/nestjs-user-management:latest
     build:
       context: .
       dockerfile: Dockerfile.prod
