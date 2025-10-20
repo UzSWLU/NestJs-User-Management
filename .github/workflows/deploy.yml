@@ -15,5 +15,11 @@ jobs:
           cd /var/www/auth-api
           git fetch origin main
           git reset --hard origin/main
-          docker-compose -f docker-compose.prod.yml up -d --build
+          
+          # Try to rebuild, fallback to restart if Docker Hub is down
+          if docker-compose -f docker-compose.prod.yml up -d --build 2>&1 | grep -q "failed to solve"; then
+            echo "⚠️ Build failed (Docker Hub issue), restarting existing container..."
+            docker-compose -f docker-compose.prod.yml restart api
+          fi
+          
           docker-compose -f docker-compose.prod.yml ps
