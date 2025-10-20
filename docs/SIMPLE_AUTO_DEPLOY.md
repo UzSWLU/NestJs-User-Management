@@ -30,11 +30,13 @@ Har 5 daqiqada:
 ```
 
 **Afzalliklari:**
+
 - ✅ Juda oddiy
 - ✅ Ishonchli
 - ✅ Qo'shimcha dastur kerak emas
 
 **Kamchiliklari:**
+
 - ⏱️ 5 daqiqagacha kutish
 
 ---
@@ -54,20 +56,20 @@ function Deploy-Server {
     param(
         [string]$Message = "update"
     )
-    
+
     Write-Host "🚀 Deploying..." -ForegroundColor Cyan
-    
+
     # Git push
     git add .
     git commit -m $Message
     git push origin main
-    
+
     if ($LASTEXITCODE -eq 0) {
         Write-Host "✅ Pushed to GitHub" -ForegroundColor Green
-        
+
         # Server deploy
         ssh root@172.22.0.19 '/var/www/auth-api/deploy.sh'
-        
+
         Write-Host "✅ Deployed to server!" -ForegroundColor Green
     } else {
         Write-Host "❌ Push failed" -ForegroundColor Red
@@ -90,11 +92,13 @@ deploy "feat: new feature"
 ```
 
 **Afzalliklari:**
+
 - ✅ Juda tez (10 sekund)
 - ✅ To'liq nazorat
 - ✅ Oddiy
 
 **Kamchiliklari:**
+
 - 📝 Manual trigger kerak (lekin 1 ta command)
 
 ---
@@ -116,21 +120,21 @@ echo "🔍 Watching for changes..."
 while true; do
   # Fetch yangilanishlar
   git fetch origin main > /dev/null 2>&1
-  
+
   # Local va remote'ni solishtirish
   LOCAL=$(git rev-parse HEAD)
   REMOTE=$(git rev-parse origin/main)
-  
+
   if [ "$LOCAL" != "$REMOTE" ]; then
     echo "📥 New changes detected!"
     echo "🚀 Starting deploy..."
-    
+
     git pull origin main
     docker-compose -f docker-compose.prod.yml up -d --build
-    
+
     echo "✅ Deploy completed!"
   fi
-  
+
   # 30 sekund kutish
   sleep 30
 done
@@ -150,10 +154,12 @@ screen -r autodeploy
 ```
 
 **Afzalliklari:**
+
 - ✅ Tez (30 sekund)
 - ✅ Real-time monitoring
 
 **Kamchiliklari:**
+
 - 🔋 Doimiy ishlab turadi
 
 ---
@@ -179,11 +185,11 @@ deploy "new feature"
 
 ## 📊 Qaysi Birini Tanlash?
 
-| Variant | Tezlik | Qulaylik | Oddiylik |
-|---------|--------|----------|----------|
-| **Cron** | 5 min | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| **Alias** | 10s | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
-| **Watch** | 30s | ⭐⭐⭐⭐ | ⭐⭐⭐ |
+| Variant   | Tezlik | Qulaylik   | Oddiylik   |
+| --------- | ------ | ---------- | ---------- |
+| **Cron**  | 5 min  | ⭐⭐⭐     | ⭐⭐⭐⭐⭐ |
+| **Alias** | 10s    | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐   |
+| **Watch** | 30s    | ⭐⭐⭐⭐   | ⭐⭐⭐     |
 
 **Men tavsiya qilaman: Cron + Alias kombo!** ✅
 
@@ -203,4 +209,3 @@ notepad $PROFILE
 ```
 
 **Tayyor!** 🎉
-
