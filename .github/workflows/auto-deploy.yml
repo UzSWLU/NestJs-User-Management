@@ -1,0 +1,108 @@
+name: 🚀 Auto Deploy to Production
+
+# Har git push qilganingizda avtomatik ishga tushadi
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+
+jobs:
+  deploy:
+    name: Deploy to Production Server
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔐 Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: 🚀 Deploy to server
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST || '172.22.0.19' }}
+          SERVER_USER: ${{ secrets.SERVER_USER || 'root' }}
+        run: |
+          echo "🌐 Connecting to $SERVER_USER@$SERVER_HOST..."
+          
+          # Add server to known hosts
+          ssh-keyscan -H $SERVER_HOST >> ~/.ssh/known_hosts
+          
+          # Deploy
+          ssh $SERVER_USER@$SERVER_HOST << 'ENDSSH'
+            set -e
+            cd /var/www/auth-api
+            
+            echo "📥 Pulling latest code..."
+            git fetch origin main
+            git reset --hard origin/main
+            
+            echo "🔨 Rebuilding containers..."
+            docker-compose -f docker-compose.prod.yml up -d --build
+            
+            echo "⏳ Waiting for API..."
+            sleep 15
+            
+            # Health check
+            MAX_RETRIES=30
+            RETRY_COUNT=0
+            while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+              if docker-compose -f docker-compose.prod.yml exec -T api wget -q -O- http://localhost:3000/api/health > /dev/null 2>&1; then
+                echo "✅ API is healthy!"
+                break
+              fi
+              RETRY_COUNT=$((RETRY_COUNT+1))
+              echo "Waiting... ($RETRY_COUNT/$MAX_RETRIES)"
+              sleep 2
+            done
+            
+            if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+              echo "❌ Health check failed!"
+              docker-compose -f docker-compose.prod.yml logs --tail=50 api
+              exit 1
+            fi
+            
+            echo "✅ Deployment completed!"
+          ENDSSH
+
+      - name: 🔍 Verify deployment
+        env:
+          APP_URL: ${{ secrets.APP_URL || 'https://auth.uzswlu.uz' }}
+        run: |
+          echo "🔍 Checking application health..."
+          sleep 3
+          
+          HEALTH_CHECK=$(curl -s -o /dev/null -w "%{http_code}" $APP_URL/api/health || echo "000")
+          
+          if [ "$HEALTH_CHECK" = "200" ]; then
+            echo "✅ Application is healthy!"
+            echo "🌐 URL: $APP_URL"
+          else
+            echo "⚠️ Health check returned: $HEALTH_CHECK"
+          fi
+
+      - name: 📊 Show deployment info
+        env:
+          SERVER_HOST: ${{ secrets.SERVER_HOST || '172.22.0.19' }}
+          SERVER_USER: ${{ secrets.SERVER_USER || 'root' }}
+        run: |
+          echo "📊 Deployment Status:"
+          ssh $SERVER_USER@$SERVER_HOST << 'ENDSSH'
+            cd /var/www/auth-api
+            echo "Container Status:"
+            docker-compose -f docker-compose.prod.yml ps
+          ENDSSH
+
+      - name: 🎉 Deployment complete
+        run: |
+          echo "✅ Deployment completed successfully!"
+          echo "Timestamp: $(date)"
+          echo "Commit: ${{ github.sha }}"
+          echo "Author: ${{ github.actor }}"
+
