@@ -87,6 +87,7 @@ sudo ufw status
 ## 🔐 GitHub'da Webhook Sozlash
 
 ### 1. GitHub Repository'ga O'ting:
+
 ```
 https://github.com/a-d-sh/NestJs-User-Management/settings/hooks
 ```
@@ -95,14 +96,14 @@ https://github.com/a-d-sh/NestJs-User-Management/settings/hooks
 
 ### 3. Webhook Sozlamalari:
 
-| Field | Value |
-|-------|-------|
-| **Payload URL** | `https://auth.uzswlu.uz/webhook` |
-| **Content type** | `application/json` |
-| **Secret** | (Serverda yaratgan WEBHOOK_SECRET) |
-| **SSL verification** | Enable SSL verification |
-| **Events** | Just the push event |
-| **Active** | ✅ Checked |
+| Field                | Value                              |
+| -------------------- | ---------------------------------- |
+| **Payload URL**      | `https://auth.uzswlu.uz/webhook`   |
+| **Content type**     | `application/json`                 |
+| **Secret**           | (Serverda yaratgan WEBHOOK_SECRET) |
+| **SSL verification** | Enable SSL verification            |
+| **Events**           | Just the push event                |
+| **Active**           | ✅ Checked                         |
 
 ### 4. "Add webhook" Tugmasini Bosing
 
@@ -178,6 +179,7 @@ GitHub → Settings → Webhooks → Recent Deliveries
 ## 🎉 Tayyor!
 
 Endi:
+
 ```bash
 git push origin main
 # 5-10 sekund → Server avtomatik yangilanadi! 🚀
@@ -197,4 +199,3 @@ git push origin main
 ```
 
 Shunchaki! 🎊
-
