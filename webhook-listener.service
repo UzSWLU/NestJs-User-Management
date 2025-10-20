@@ -1,0 +1,16 @@
+[Unit]
+Description=GitHub Webhook Listener for Auto Deploy
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/auth-api
+Environment="WEBHOOK_SECRET=your-secret-key-change-this"
+ExecStart=/usr/bin/node /var/www/auth-api/webhook-server.js
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+
