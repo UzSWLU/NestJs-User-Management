@@ -9,22 +9,22 @@ jobs:
   deploy:
     name: Deploy to Production
     runs-on: self-hosted
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Pull latest code
         run: |
           cd /var/www/auth-api
           git fetch origin main
           git reset --hard origin/main
-      
+
       - name: Rebuild containers
         run: |
           cd /var/www/auth-api
           docker-compose -f docker-compose.prod.yml up -d --build
-      
+
       - name: Show status
         run: |
           cd /var/www/auth-api
