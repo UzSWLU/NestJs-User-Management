@@ -1,4 +1,4 @@
-name: 🚀 Auto Deploy
+name: Deploy
 
 on:
   push:
@@ -7,28 +7,20 @@ on:
 
 jobs:
   deploy:
-    name: Deploy to Production
+    name: Deploy
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     
     steps:
-      - name: 🚀 Deploy to Server
-        uses: appleboy/ssh-action@v1.0.0
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
+          command_timeout: 10m
           script: |
-            echo "📂 Navigating to project directory..."
             cd /var/www/auth-api
-            
-            echo "📥 Pulling latest code from GitHub..."
             git pull origin main
-            
-            echo "🔨 Rebuilding Docker containers..."
             docker-compose -f docker-compose.prod.yml up -d --build
-            
-            echo "✅ Deployment completed successfully!"
-            
-            echo "📊 Container status:"
-            docker-compose -f docker-compose.prod.yml ps
