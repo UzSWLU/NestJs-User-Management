@@ -26,6 +26,7 @@ jobs:
 
           echo "🔄 Redeploying with latest code..."
           docker-compose -f docker-compose.prod.yml down
+          docker-compose -f docker-compose.prod.yml build --no-cache api
           docker-compose -f docker-compose.prod.yml up -d
 
           echo "⏳ Waiting for containers..."
