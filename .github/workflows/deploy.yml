@@ -4,22 +4,31 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
 
 jobs:
   deploy:
     name: Deploy
     runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 5
     steps:
       - name: Deploy
+        timeout-minutes: 5
         run: |
+          set -e
           cd /var/www/auth-api
+          
+          echo "📥 Pulling latest code..."
           git fetch origin main
           git reset --hard origin/main
           
-          # Try to rebuild, fallback to restart if Docker Hub is down
-          if docker-compose -f docker-compose.prod.yml up -d --build 2>&1 | grep -q "failed to solve"; then
-            echo "⚠️ Build failed (Docker Hub issue), restarting existing container..."
-            docker-compose -f docker-compose.prod.yml restart api
-          fi
+          echo "🔄 Restarting API container..."
+          docker-compose -f docker-compose.prod.yml restart api
           
+          echo "⏳ Waiting for health check..."
+          sleep 5
+          
+          echo "✅ Deployment completed!"
           docker-compose -f docker-compose.prod.yml ps
