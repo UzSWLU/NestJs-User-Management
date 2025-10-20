@@ -24,6 +24,7 @@ FRONTEND_CALLBACK_URL=https://front.uzswlu.uz/callback,http://localhost:3003/cal
 ```
 
 **Qanday ishlaydi:**
+
 - Birinchi URL (`,` dan oldingi) - **default/primary**
 - Qolgan URL'lar - test/fallback uchun
 
@@ -34,6 +35,7 @@ FRONTEND_CALLBACK_URL=https://front.uzswlu.uz/callback,http://localhost:3003/cal
 ### Variant 1: Default URL (Production)
 
 **Frontend code:**
+
 ```typescript
 // OAuth login boshlash
 const response = await fetch('https://auth.uzswlu.uz/api/auth/login/hemis');
@@ -44,6 +46,7 @@ window.location.href = data.authorizationUrl;
 ```
 
 **Natija:**
+
 - User HEMIS'da login qiladi
 - Backend `https://front.uzswlu.uz/callback?accessToken=...` ga yo'naltiradi ✅
 
@@ -52,10 +55,11 @@ window.location.href = data.authorizationUrl;
 ### Variant 2: Custom Return URL (Testing)
 
 **Frontend code (local test):**
+
 ```typescript
 // OAuth login with custom returnUrl
 const response = await fetch(
-  'https://auth.uzswlu.uz/api/auth/login/hemis?returnUrl=http://localhost:3003/callback'
+  'https://auth.uzswlu.uz/api/auth/login/hemis?returnUrl=http://localhost:3003/callback',
 );
 const data = await response.json();
 
@@ -64,6 +68,7 @@ window.location.href = data.authorizationUrl;
 ```
 
 **Natija:**
+
 - User HEMIS'da login qiladi
 - Backend `http://localhost:3003/callback?accessToken=...` ga yo'naltiradi ✅
 
@@ -72,6 +77,7 @@ window.location.href = data.authorizationUrl;
 ### Variant 3: Ko'rish va Tanlash
 
 **Frontend code:**
+
 ```typescript
 const response = await fetch('https://auth.uzswlu.uz/api/auth/login/hemis');
 const data = await response.json();
@@ -80,11 +86,13 @@ console.log('Available callbacks:', data.availableCallbacks);
 // ["https://front.uzswlu.uz/callback", "http://localhost:3003/callback", "http://localhost:3000/callback"]
 
 // Choose one
-const myCallback = data.availableCallbacks.find(url => url.includes('localhost')) || data.frontendRedirectUrl;
+const myCallback =
+  data.availableCallbacks.find((url) => url.includes('localhost')) ||
+  data.frontendRedirectUrl;
 
 // Use custom callback
 const customResponse = await fetch(
-  `https://auth.uzswlu.uz/api/auth/login/hemis?returnUrl=${encodeURIComponent(myCallback)}`
+  `https://auth.uzswlu.uz/api/auth/login/hemis?returnUrl=${encodeURIComponent(myCallback)}`,
 );
 ```
 
@@ -126,6 +134,7 @@ GET /api/auth/login/hemis
 ### 1. Update .env.production (GitHub'dan!)
 
 **GitHub Actions:**
+
 1. Go to: `https://github.com/a-d-sh/NestJs-User-Management/actions`
 2. Select: **"🔧 Update .env.production"**
 3. Input:
@@ -140,12 +149,14 @@ GET /api/auth/login/hemis
 ### 2. Full Reset (Yangi Database)
 
 **GitHub Actions:**
+
 1. Select: **"🔴 Full Production Reset"**
 2. Type: `RESET`
 3. Run
 4. Wait 10 minutes
 
 **Result:**
+
 - ✅ `.env.production` → Multiple URLs
 - ✅ Database `front_redirect` → Primary URL
 - ✅ Auth service → Comma-separated list'dan tanlaydi
@@ -196,28 +207,28 @@ class OAuthLogin {
   async startOAuthFlow(provider: string) {
     // For production
     const apiUrl = 'https://auth.uzswlu.uz/api/auth/login/' + provider;
-    
+
     // For local testing, add returnUrl
     const isDev = window.location.hostname === 'localhost';
-    const url = isDev 
+    const url = isDev
       ? `${apiUrl}?returnUrl=http://localhost:3003/callback`
       : apiUrl;
-    
+
     const response = await fetch(url);
     const data = await response.json();
-    
+
     console.log('Will redirect to:', data.frontendRedirectUrl);
-    
+
     // Redirect to HEMIS
     window.location.href = data.authorizationUrl;
   }
-  
+
   // After OAuth callback
   handleCallback() {
     const params = new URLSearchParams(window.location.search);
     const accessToken = params.get('accessToken');
     const userId = params.get('userId');
-    
+
     // Save tokens and login
     localStorage.setItem('accessToken', accessToken);
     // ... navigate to dashboard
@@ -239,11 +250,10 @@ class OAuthLogin {
 
 ## 🎯 Summary
 
-| Scenario | URL | Method |
-|----------|-----|--------|
-| **Production** | `https://front.uzswlu.uz/callback` | Default (primary from .env) |
-| **Local Test** | `http://localhost:3003/callback` | Query param: `?returnUrl=...` |
-| **Custom** | Any URL | Query param: `?returnUrl=...` |
+| Scenario       | URL                                | Method                        |
+| -------------- | ---------------------------------- | ----------------------------- |
+| **Production** | `https://front.uzswlu.uz/callback` | Default (primary from .env)   |
+| **Local Test** | `http://localhost:3003/callback`   | Query param: `?returnUrl=...` |
+| **Custom**     | Any URL                            | Query param: `?returnUrl=...` |
 
 **Hamma narsa bir .env variable bilan!** 🎉
-

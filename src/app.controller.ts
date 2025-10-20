@@ -26,8 +26,8 @@ export class AppController {
     return {
       status: 'ok',
       message: 'User Management API is running',
-      version: '1.5.0',
-      deployed: 'Multiple Frontend URLs Support!',
+      version: '1.6.0',
+      deployed: 'Fixed BACKEND_URL Usage!',
       timezone: 'Asia/Tashkent (UTC+5)',
       currentTime: DateUtil.toReadableString(),
       timestamp: DateUtil.toISOString(),

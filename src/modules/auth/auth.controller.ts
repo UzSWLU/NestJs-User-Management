@@ -424,7 +424,7 @@ export class AuthController {
       );
     }
 
-    const callbackUrl = `${process.env.APP_URL || 'http://localhost:3000'}/api/auth/callback/${providerName}`;
+    const callbackUrl = `${process.env.BACKEND_URL || 'http://localhost:3000'}/api/auth/callback/${providerName}`;
 
     const authUrl = await this.oauthService.getAuthorizationUrl(
       providerName,
@@ -594,7 +594,7 @@ export class AuthController {
     }
 
     // Use same callback URL as login flow (HEMIS requires single registered redirect_uri)
-    const callbackUrl = `${process.env.APP_URL || 'http://localhost:3000'}/api/auth/callback/${providerName}`;
+    const callbackUrl = `${process.env.BACKEND_URL || 'http://localhost:3000'}/api/auth/callback/${providerName}`;
 
     const authUrl = await this.oauthService.getAuthorizationUrl(
       providerName,
@@ -782,7 +782,7 @@ export class AuthController {
     }
 
     // Use the same callback URL as login flow (HEMIS registered redirect_uri)
-    const callbackUrl = `${process.env.APP_URL || 'http://localhost:3000'}/api/auth/callback/${providerName}`;
+    const callbackUrl = `${process.env.BACKEND_URL || 'http://localhost:3000'}/api/auth/callback/${providerName}`;
 
     try {
       // Exchange code for access token
@@ -913,7 +913,7 @@ export class AuthController {
 
     // If no code provided, redirect to login
     if (!code) {
-      const loginUrl = `${process.env.APP_URL || 'http://localhost:3000'}/api/auth/login/${providerName}`;
+      const loginUrl = `${process.env.BACKEND_URL || 'http://localhost:3000'}/api/auth/login/${providerName}`;
       return res.send(`
         <!DOCTYPE html>
         <html>
@@ -960,7 +960,7 @@ export class AuthController {
     // Default redirect URI if not provided
     const callbackUrl =
       redirectUri ||
-      `${process.env.APP_URL || 'http://localhost:3000'}/api/auth/callback/${providerName}`;
+      `${process.env.BACKEND_URL || 'http://localhost:3000'}/api/auth/callback/${providerName}`;
 
     // Exchange code for access token
     const tokenData = await this.oauthService.exchangeCodeForToken(
@@ -1064,7 +1064,7 @@ export class AuthController {
 
             <div style="margin-top: 20px;">
               <button onclick="testAPI()">Test API with Token</button>
-              <button onclick="location.href='${process.env.APP_URL || 'http://localhost:3000'}'">Go to Swagger</button>
+              <button onclick="location.href='${process.env.BACKEND_URL || 'http://localhost:3000'}'">Go to Swagger</button>
             </div>
           </div>
 
@@ -1078,7 +1078,7 @@ export class AuthController {
 
             function testAPI() {
               const token = document.getElementById('accessToken').textContent;
-              fetch('${process.env.APP_URL || 'http://localhost:3000'}/api/auth/me', {
+              fetch('${process.env.BACKEND_URL || 'http://localhost:3000'}/api/auth/me', {
                 headers: { 'Authorization': 'Bearer ' + token }
               })
               .then(res => res.json())
