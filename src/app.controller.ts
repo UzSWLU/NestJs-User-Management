@@ -26,8 +26,8 @@ export class AppController {
     return {
       status: 'ok',
       message: 'User Management API is running',
-      version: '1.7.0',
-      deployed: 'Deploy with --no-cache build!',
+      version: '1.7.1',
+      deployed: 'Multiple Frontend URLs Active!',
       timezone: 'Asia/Tashkent (UTC+5)',
       currentTime: DateUtil.toReadableString(),
       timestamp: DateUtil.toISOString(),
