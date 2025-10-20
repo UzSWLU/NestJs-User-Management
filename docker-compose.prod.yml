@@ -33,6 +33,10 @@ services:
       THROTTLE_TTL: ${THROTTLE_TTL:-60}
       THROTTLE_LIMIT: ${THROTTLE_LIMIT:-10}
       
+      # OAuth URLs
+      BACKEND_URL: ${BACKEND_URL:-https://auth.uzswlu.uz}
+      FRONTEND_CALLBACK_URL: ${FRONTEND_CALLBACK_URL:-http://localhost:3003/callback}
+      
     depends_on:
       mysql:
         condition: service_healthy

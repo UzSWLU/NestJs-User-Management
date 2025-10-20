@@ -13,17 +13,21 @@ export async function seedOAuthProviders(dataSource: DataSource) {
 
   console.log('🌱 Seeding OAuth providers...');
 
+  // Environment-based URLs
+  const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+  const frontendCallbackUrl = process.env.FRONTEND_CALLBACK_URL || 'http://localhost:3003/callback';
+
   const providers = providerRepo.create([
     {
       name: 'hemis',
       client_id: '4',
       client_secret: 'nfqKaEMNzb5FbALETL9GqRa_n6g9KDMoEsFSDDF1',
-      redirect_uri: 'https://uzswlu.uz/site/login',
+      redirect_uri: `${backendUrl}/api/auth/callback/hemis`,
       url_authorize: 'https://hemis.uzswlu.uz/oauth/authorize',
       url_access_token: 'https://hemis.uzswlu.uz/oauth/access-token',
       url_resource_owner_details:
         'https://hemis.uzswlu.uz/oauth/api/user?fields=id,uuid,employee-list?type=all,type,name,login,image_full,email,university_id,phone,employee_list,departments',
-      // front_redirect: Configure via API (e.g., 'http://localhost:3001/auth/success')
+      front_redirect: frontendCallbackUrl,
       is_active: true,
     },
     {
