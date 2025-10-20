@@ -426,15 +426,19 @@ export class AuthController {
 
     const callbackUrl = `${process.env.BACKEND_URL || 'http://localhost:3000'}/api/auth/callback/${providerName}`;
 
-    const authUrl = await this.oauthService.getAuthorizationUrl(
-      providerName,
-      callbackUrl,
-    );
-
     // Determine frontend redirect URL (priority: query param > .env > provider config)
     const frontendCallbackUrls = process.env.FRONTEND_CALLBACK_URL || provider.front_redirect;
     const primaryFrontendUrl = frontendCallbackUrls?.split(',')[0]?.trim();
     const finalRedirectUrl = returnUrl || primaryFrontendUrl;
+
+    // Encode returnUrl in state parameter (so callback can use it)
+    const stateData = finalRedirectUrl ? { returnUrl: finalRedirectUrl } : undefined;
+
+    const authUrl = await this.oauthService.getAuthorizationUrl(
+      providerName,
+      callbackUrl,
+      stateData,
+    );
 
     console.log(`🔗 OAuth login requested for ${providerName}`);
     console.log(`📍 Return URL: ${finalRedirectUrl || 'not configured'}`);
@@ -596,19 +600,17 @@ export class AuthController {
     // Use same callback URL as login flow (HEMIS requires single registered redirect_uri)
     const callbackUrl = `${process.env.BACKEND_URL || 'http://localhost:3000'}/api/auth/callback/${providerName}`;
 
+    // Store user ID and flow type in state parameter
+    const stateData = { userId: user.id, flow: 'link' };
+
     const authUrl = await this.oauthService.getAuthorizationUrl(
       providerName,
       callbackUrl,
+      stateData,
     );
 
-    // Store user ID and flow type in state parameter
-    const stateParam = Buffer.from(
-      JSON.stringify({ userId: user.id, flow: 'link' }),
-    ).toString('base64');
-    const authUrlWithState = `${authUrl}&state=${stateParam}`;
-
     return {
-      authorizationUrl: authUrlWithState,
+      authorizationUrl: authUrl,
       provider: providerName,
       message: `Open authorizationUrl in browser to link your ${providerName.toUpperCase()} account. After linking, you can login with either method.`,
     };
@@ -891,10 +893,13 @@ export class AuthController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    // Check if this is a link flow (from /api/auth/link/:provider)
+    // Decode state parameter to get returnUrl and flow type
+    let stateReturnUrl: string | undefined;
     if (state) {
       try {
         const stateData = JSON.parse(Buffer.from(state, 'base64').toString());
+        
+        // Check if this is a link flow
         if (stateData.flow === 'link' && stateData.userId) {
           // This is a link flow - redirect to link callback handler
           return this.handleOAuthLinkCallback(
@@ -904,6 +909,12 @@ export class AuthController {
             req,
             res,
           );
+        }
+        
+        // Extract returnUrl from state (for login flow)
+        if (stateData.returnUrl) {
+          stateReturnUrl = stateData.returnUrl;
+          console.log(`📍 Return URL from state: ${stateReturnUrl}`);
         }
       } catch (error) {
         // Invalid state - continue with normal login flow
@@ -1001,10 +1012,10 @@ export class AuthController {
       platform,
     );
 
-    // Determine redirect URL (priority: query param > .env > provider config)
+    // Determine redirect URL (priority: state > query param > .env > provider config)
     const envCallbackUrls = process.env.FRONTEND_CALLBACK_URL;
     const primaryEnvUrl = envCallbackUrls?.split(',')[0]?.trim();
-    const redirectTarget = frontendUrl || primaryEnvUrl || provider.front_redirect;
+    const redirectTarget = stateReturnUrl || frontendUrl || primaryEnvUrl || provider.front_redirect;
 
     // If frontend redirect URL is configured, redirect with tokens
     if (redirectTarget) {

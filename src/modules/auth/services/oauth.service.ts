@@ -50,6 +50,7 @@ export class OAuthService {
   async getAuthorizationUrl(
     providerName: string,
     redirectUri: string,
+    stateData?: any,
   ): Promise<string> {
     const provider = await this.providerRepo.findOne({
       where: { name: providerName, is_active: true },
@@ -73,6 +74,12 @@ export class OAuthService {
       client_id: provider.client_id,
       redirect_uri: redirectUri,
     });
+
+    // Add state parameter if provided (for returnUrl, CSRF protection, etc.)
+    if (stateData) {
+      const stateString = Buffer.from(JSON.stringify(stateData)).toString('base64');
+      params.append('state', stateString);
+    }
 
     // Add scope only for providers that require it
     if (providerName === 'google') {

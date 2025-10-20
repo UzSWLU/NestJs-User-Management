@@ -26,8 +26,8 @@ export class AppController {
     return {
       status: 'ok',
       message: 'User Management API is running',
-      version: '1.8.0',
-      deployed: 'Deploy with --env-file fixed!',
+      version: '1.9.0',
+      deployed: 'State-based returnUrl support!',
       timezone: 'Asia/Tashkent (UTC+5)',
       currentTime: DateUtil.toReadableString(),
       timestamp: DateUtil.toISOString(),
