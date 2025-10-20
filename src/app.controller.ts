@@ -26,8 +26,8 @@ export class AppController {
     return {
       status: 'ok',
       message: 'User Management API is running',
-      version: '1.1.0',
-      deployed: 'GitHub Actions + Self-Hosted Runner Working!',
+      version: '1.2.0',
+      deployed: 'CI/CD Fully Automated!',
       timezone: 'Asia/Tashkent (UTC+5)',
       currentTime: DateUtil.toReadableString(),
       timestamp: DateUtil.toISOString(),
