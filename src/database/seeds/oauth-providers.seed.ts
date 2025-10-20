@@ -17,8 +17,12 @@ export async function seedOAuthProviders(dataSource: DataSource) {
   const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
   const frontendCallbackUrl = process.env.FRONTEND_CALLBACK_URL || 'http://localhost:3003/callback';
   
+  // Get primary URL from comma-separated list
+  const primaryFrontendUrl = frontendCallbackUrl.split(',')[0].trim();
+  
   console.log(`📍 Backend URL: ${backendUrl}`);
-  console.log(`📍 Frontend Callback: ${frontendCallbackUrl}`);
+  console.log(`📍 Frontend Callback (primary): ${primaryFrontendUrl}`);
+  console.log(`📍 All Frontend URLs: ${frontendCallbackUrl}`);
 
   const providers = providerRepo.create([
     {
@@ -30,7 +34,7 @@ export async function seedOAuthProviders(dataSource: DataSource) {
       url_access_token: 'https://hemis.uzswlu.uz/oauth/access-token',
       url_resource_owner_details:
         'https://hemis.uzswlu.uz/oauth/api/user?fields=id,uuid,employee-list?type=all,type,name,login,image_full,email,university_id,phone,employee_list,departments',
-      front_redirect: frontendCallbackUrl,
+      front_redirect: primaryFrontendUrl,
       is_active: true,
     },
     {

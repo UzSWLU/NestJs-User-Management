@@ -409,7 +409,10 @@ export class AuthController {
     status: 404,
     description: 'OAuth provider not found or inactive',
   })
-  async loginWithOAuth(@Param('provider') providerName: string) {
+  async loginWithOAuth(
+    @Param('provider') providerName: string,
+    @Query('returnUrl') returnUrl?: string,
+  ) {
     // Get provider from database to check front_redirect
     const provider = await this.oauthService['providerRepo'].findOne({
       where: { name: providerName, is_active: true },
@@ -428,12 +431,21 @@ export class AuthController {
       callbackUrl,
     );
 
+    // Determine frontend redirect URL (priority: query param > .env > provider config)
+    const frontendCallbackUrls = process.env.FRONTEND_CALLBACK_URL || provider.front_redirect;
+    const primaryFrontendUrl = frontendCallbackUrls?.split(',')[0]?.trim();
+    const finalRedirectUrl = returnUrl || primaryFrontendUrl;
+
+    console.log(`🔗 OAuth login requested for ${providerName}`);
+    console.log(`📍 Return URL: ${finalRedirectUrl || 'not configured'}`);
+
     // Return JSON with authorization URL and frontend redirect URL
     return {
       authorizationUrl: authUrl,
       provider: providerName,
-      frontendRedirectUrl: provider.front_redirect || null,
-      message: provider.front_redirect
+      frontendRedirectUrl: finalRedirectUrl || null,
+      availableCallbacks: frontendCallbackUrls?.split(',').map((url) => url.trim()) || [],
+      message: finalRedirectUrl
         ? 'Open authorizationUrl in browser to login. After login, you will be redirected to frontendRedirectUrl with tokens.'
         : 'Open authorizationUrl in browser to login. Configure front_redirect in provider settings for automatic redirect.',
     };
@@ -989,8 +1001,10 @@ export class AuthController {
       platform,
     );
 
-    // Determine redirect URL (priority: query param > provider config)
-    const redirectTarget = frontendUrl || provider.front_redirect;
+    // Determine redirect URL (priority: query param > .env > provider config)
+    const envCallbackUrls = process.env.FRONTEND_CALLBACK_URL;
+    const primaryEnvUrl = envCallbackUrls?.split(',')[0]?.trim();
+    const redirectTarget = frontendUrl || primaryEnvUrl || provider.front_redirect;
 
     // If frontend redirect URL is configured, redirect with tokens
     if (redirectTarget) {

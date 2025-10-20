@@ -1,16 +1,16 @@
 name: 🔧 Update .env.production
 
 on:
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch: # Manual trigger
     inputs:
       backend_url:
         description: 'Backend URL (default: https://auth.uzswlu.uz)'
         required: false
         default: 'https://auth.uzswlu.uz'
       frontend_callback:
-        description: 'Frontend Callback URL (default: https://front.uzswlu.uz/callback)'
+        description: 'Frontend Callback URL (comma-separated for multiple, default: https://front.uzswlu.uz/callback,http://localhost:3003/callback)'
         required: false
-        default: 'https://front.uzswlu.uz/callback'
+        default: 'https://front.uzswlu.uz/callback,http://localhost:3003/callback,http://localhost:3000/callback'
 
 jobs:
   update-env:
@@ -20,45 +20,45 @@ jobs:
       - name: 📝 Update .env.production
         run: |
           cd /var/www/auth-api
-          
+
           echo "🔍 Current .env.production:"
           grep -E "BACKEND_URL|FRONTEND_CALLBACK_URL" .env.production || echo "OAuth URLs not found"
-          
+
           # Remove old OAuth URLs if they exist
           sed -i '/^BACKEND_URL=/d' .env.production
           sed -i '/^FRONTEND_CALLBACK_URL=/d' .env.production
           sed -i '/^# OAuth URLs/d' .env.production
-          
+
           # Add new OAuth URLs
           echo "" >> .env.production
           echo "# OAuth URLs" >> .env.production
           echo "BACKEND_URL=${{ github.event.inputs.backend_url }}" >> .env.production
           echo "FRONTEND_CALLBACK_URL=${{ github.event.inputs.frontend_callback }}" >> .env.production
-          
+
           echo ""
           echo "✅ Updated .env.production:"
           grep -E "BACKEND_URL|FRONTEND_CALLBACK_URL" .env.production
-          
+
       - name: 🔄 Rebuild and Restart
         run: |
           cd /var/www/auth-api
-          
+
           echo "🛑 Stopping containers..."
           docker-compose -f docker-compose.prod.yml down -v
-          
+
           echo "🔨 Rebuilding with new environment..."
           docker-compose -f docker-compose.prod.yml up -d --build
-          
+
           echo "⏳ Waiting for services to start..."
           sleep 60
-          
+
       - name: ✅ Verify Configuration
         run: |
           cd /var/www/auth-api
-          
+
           echo "📊 Container Status:"
           docker-compose -f docker-compose.prod.yml ps
-          
+
           echo ""
           echo "🔍 Checking OAuth providers in database:"
           docker-compose -f docker-compose.prod.yml exec -T mysql mysql \
@@ -69,7 +69,7 @@ jobs:
           echo "🏥 Health Check:"
           sleep 5
           curl -s https://auth.uzswlu.uz/api/health || echo "⚠️  Health check failed"
-          
+
       - name: 🎉 Success
         run: |
           echo ""
@@ -81,4 +81,3 @@ jobs:
           echo ""
           echo "🔗 Backend: ${{ github.event.inputs.backend_url }}"
           echo "🔗 Frontend: ${{ github.event.inputs.frontend_callback }}"
-

@@ -7,6 +7,7 @@ Bu qo'llanma `.env.production` faylini yangilash va OAuth URL'larni sozlashni ko
 ## 🎯 Muammo
 
 `.env.production`'da `BACKEND_URL` va `FRONTEND_CALLBACK_URL` yo'q bo'lsa:
+
 - ❌ OAuth providers `localhost` URL'larni ishlatadi
 - ❌ HEMIS redirect serverga kelmaydi
 - ❌ Yangi user'lar yaratilmaydi
@@ -18,6 +19,7 @@ Bu qo'llanma `.env.production` faylini yangilash va OAuth URL'larni sozlashni ko
 ### Option 1: GitHub Actions'dan Yangilash (TAVSIYA!)
 
 1. **GitHub'ga boring:**
+
    ```
    https://github.com/a-d-sh/NestJs-User-Management/actions
    ```
@@ -84,6 +86,7 @@ docker-compose -f docker-compose.prod.yml exec -T mysql mysql \
 ## 📊 Kutilgan Natija
 
 ### .env.production (yangi):
+
 ```bash
 # ... existing vars ...
 
@@ -93,6 +96,7 @@ FRONTEND_CALLBACK_URL=https://front.uzswlu.uz/callback
 ```
 
 ### Database (yangi):
+
 ```sql
 name  | redirect_uri                                    | front_redirect
 ------+-------------------------------------------------+----------------------------------
@@ -100,6 +104,7 @@ hemis | https://auth.uzswlu.uz/api/auth/callback/hemis | https://front.uzswlu.uz
 ```
 
 ### Seed Log:
+
 ```
 🌱 Seeding OAuth providers...
 📍 Backend URL: https://auth.uzswlu.uz
@@ -114,6 +119,7 @@ hemis | https://auth.uzswlu.uz/api/auth/callback/hemis | https://front.uzswlu.uz
 Agar bir nechta frontend URL kerak bo'lsa:
 
 ### .env.production:
+
 ```bash
 # Primary frontend
 FRONTEND_CALLBACK_URL=https://front.uzswlu.uz/callback
@@ -123,12 +129,13 @@ FRONTEND_CALLBACK_URL=https://front.uzswlu.uz/callback
 ```
 
 ### Database'da Manual O'zgartirish:
+
 ```bash
 # Update for testing with localhost
 docker-compose -f docker-compose.prod.yml exec -T mysql mysql \
   -u root -pYOUR_PASSWORD \
   auth_management -e "
-UPDATE oauth_providers 
+UPDATE oauth_providers
 SET front_redirect = 'http://localhost:3003/callback'
 WHERE name='hemis';
 "
@@ -150,6 +157,7 @@ HEMIS OAuth admin panelida **Redirect URI**'ni ham yangilang:
 ```
 
 Bu ikkalasi ham to'g'ri bo'lishi shart:
+
 1. ✅ `.env.production` → `BACKEND_URL`
 2. ✅ HEMIS admin panel → Redirect URI
 
@@ -162,6 +170,7 @@ Bu ikkalasi ham to'g'ri bo'lishi shart:
 **Sabab:** `.env.production` yangilanmagan yoki container restart qilinmagan.
 
 **Yechim:**
+
 ```bash
 # Check .env
 cat .env.production | grep BACKEND_URL
@@ -180,6 +189,7 @@ docker-compose -f docker-compose.prod.yml up -d --build
 **Sabab:** OAuth providers allaqachon seeded (skip qilindi).
 
 **Yechim:**
+
 ```bash
 # Database volume'ni tozalash (data yo'qoladi!)
 docker-compose -f docker-compose.prod.yml down -v
@@ -187,8 +197,8 @@ docker-compose -f docker-compose.prod.yml up -d --build
 
 # Yoki manual update
 docker-compose exec mysql mysql -u root -p -e "
-UPDATE auth_management.oauth_providers 
-SET 
+UPDATE auth_management.oauth_providers
+SET
   redirect_uri = 'https://auth.uzswlu.uz/api/auth/callback/hemis',
   front_redirect = 'https://front.uzswlu.uz/callback'
 WHERE name='hemis';
@@ -199,12 +209,11 @@ WHERE name='hemis';
 
 ## 🎯 Summary
 
-| Step | Method | Time |
-|------|--------|------|
-| 1. Update .env | GitHub Workflow | instant |
+| Step                  | Method             | Time    |
+| --------------------- | ------------------ | ------- |
+| 1. Update .env        | GitHub Workflow    | instant |
 | 2. Rebuild containers | Auto (in workflow) | 5-10min |
-| 3. Verify OAuth URLs | Auto (in workflow) | instant |
-| 4. Test OAuth login | Manual | instant |
+| 3. Verify OAuth URLs  | Auto (in workflow) | instant |
+| 4. Test OAuth login   | Manual             | instant |
 
 **Hamma narsa GitHub orqali!** 🚀
-

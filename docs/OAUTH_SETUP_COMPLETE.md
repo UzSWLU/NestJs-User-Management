@@ -5,6 +5,7 @@
 ### Step 1: Update .env.production (GitHub'dan!)
 
 **GitHub Actions:**
+
 1. Go to: `https://github.com/a-d-sh/NestJs-User-Management/actions`
 2. Select: **"🔧 Update .env.production"**
 3. Click: **"Run workflow"**
@@ -35,6 +36,7 @@
 ### Step 3: Test OAuth Login
 
 1. **Open browser:**
+
    ```
    https://auth.uzswlu.uz/api/auth/login/hemis
    ```
@@ -66,6 +68,7 @@ cat .env.production | grep -E "BACKEND_URL|FRONTEND_CALLBACK_URL"
 ```
 
 **Expected:**
+
 ```bash
 BACKEND_URL=https://auth.uzswlu.uz
 FRONTEND_CALLBACK_URL=https://front.uzswlu.uz/callback
@@ -82,6 +85,7 @@ docker-compose -f docker-compose.prod.yml exec -T mysql mysql \
 ```
 
 **Expected:**
+
 ```
 name  | redirect_uri                                    | front_redirect
 ------+-------------------------------------------------+----------------------------------
@@ -97,6 +101,7 @@ docker-compose -f docker-compose.prod.yml logs api | grep "Backend URL\|Frontend
 ```
 
 **Expected:**
+
 ```
 📍 Backend URL: https://auth.uzswlu.uz
 📍 Frontend Callback: https://front.uzswlu.uz/callback
@@ -106,24 +111,24 @@ docker-compose -f docker-compose.prod.yml logs api | grep "Backend URL\|Frontend
 
 ## 🎮 Available GitHub Workflows
 
-| Workflow | Purpose | When to Use |
-|----------|---------|-------------|
-| **Deploy** | Auto deploy on push | Every code change |
-| **Update .env.production** | Update environment | Change OAuth URLs |
-| **Full Production Reset** | Complete rebuild | Fresh database needed |
-| **Check Production Errors** | View logs/errors | Debugging |
+| Workflow                    | Purpose             | When to Use           |
+| --------------------------- | ------------------- | --------------------- |
+| **Deploy**                  | Auto deploy on push | Every code change     |
+| **Update .env.production**  | Update environment  | Change OAuth URLs     |
+| **Full Production Reset**   | Complete rebuild    | Fresh database needed |
+| **Check Production Errors** | View logs/errors    | Debugging             |
 
 ---
 
 ## 📝 OAuth Configuration Files
 
-| File | Purpose |
-|------|---------|
+| File                                         | Purpose                             |
+| -------------------------------------------- | ----------------------------------- |
 | `src/database/seeds/oauth-providers.seed.ts` | Seeds OAuth providers with env vars |
-| `docker-compose.prod.yml` | Passes env vars to container |
-| `env.production.example` | Template for .env.production |
-| `.github/workflows/update-env.yml` | Updates .env via GitHub |
-| `.github/workflows/full-reset.yml` | Full reset with env check |
+| `docker-compose.prod.yml`                    | Passes env vars to container        |
+| `env.production.example`                     | Template for .env.production        |
+| `.github/workflows/update-env.yml`           | Updates .env via GitHub             |
+| `.github/workflows/full-reset.yml`           | Full reset with env check           |
 
 ---
 
@@ -136,7 +141,7 @@ docker-compose -f docker-compose.prod.yml logs api | grep "Backend URL\|Frontend
 docker-compose -f docker-compose.prod.yml exec -T mysql mysql \
   -u root -pYOUR_PASSWORD \
   auth_management -e "
-UPDATE oauth_providers 
+UPDATE oauth_providers
 SET front_redirect = 'http://localhost:3003/callback'
 WHERE name='hemis';
 "
@@ -159,30 +164,36 @@ docker-compose -f docker-compose.prod.yml restart api
 ### Issue 1: Callback not reaching server
 
 **Symptoms:**
+
 - No callback logs in API
 - OAuth redirect URL shows localhost
 
 **Solution:**
+
 - ✅ Check HEMIS admin panel redirect URI
 - ✅ Must be: `https://auth.uzswlu.uz/api/auth/callback/hemis`
 
 ### Issue 2: Wrong frontend redirect
 
 **Symptoms:**
+
 - Redirected to localhost after OAuth
 - Frontend can't receive token
 
 **Solution:**
+
 - ✅ Update `FRONTEND_CALLBACK_URL` in .env.production
 - ✅ Use GitHub workflow: "Update .env.production"
 
 ### Issue 3: OAuth URLs still localhost after update
 
 **Symptoms:**
+
 - Database shows localhost URLs
 - .env.production is correct
 
 **Solution:**
+
 - ✅ Database wasn't rebuilt
 - ✅ Use: "Full Production Reset" workflow
 - ✅ This will recreate database with new URLs
@@ -211,4 +222,3 @@ After everything is configured:
 3. **Check frontend:** Should receive tokens at `https://front.uzswlu.uz/callback`
 
 **All done via GitHub - no SSH needed!** 🎉
-

@@ -31,27 +31,27 @@ jobs:
           echo "🔴 FULL PRODUCTION RESET"
           echo "🔴 All data will be deleted and recreated!"
           echo "🔴 =============================================="
-          
+
       - name: 🔧 Ensure OAuth URLs in .env.production
         run: |
           cd /var/www/auth-api
-          
+
           echo "🔍 Checking .env.production for OAuth URLs..."
-          
+
           # Remove old OAuth URLs if they exist
           sed -i '/^BACKEND_URL=/d' .env.production
           sed -i '/^FRONTEND_CALLBACK_URL=/d' .env.production
           sed -i '/^# OAuth URLs/d' .env.production
-          
+
           # Add OAuth URLs
           echo "" >> .env.production
           echo "# OAuth URLs" >> .env.production
           echo "BACKEND_URL=https://auth.uzswlu.uz" >> .env.production
-          echo "FRONTEND_CALLBACK_URL=https://front.uzswlu.uz/callback" >> .env.production
-          
+          echo "FRONTEND_CALLBACK_URL=https://front.uzswlu.uz/callback,http://localhost:3003/callback,http://localhost:3000/callback" >> .env.production
+
           echo "✅ OAuth URLs configured:"
           grep -E "BACKEND_URL|FRONTEND_CALLBACK_URL" .env.production
-          
+
       - name: 🔄 Execute full reset
         run: |
           cd /var/www/auth-api
