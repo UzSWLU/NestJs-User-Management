@@ -1,0 +1,96 @@
+name: 🔍 Check Production Errors
+
+on:
+  workflow_dispatch:  # Manual trigger
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+
+jobs:
+  check-errors:
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 5
+    steps:
+      - name: 📊 Check container status
+        id: container_status
+        run: |
+          echo "📊 Container Status:"
+          docker-compose -f /var/www/auth-api/docker-compose.prod.yml ps
+          
+      - name: 🔍 Check API errors (last 500 lines)
+        id: api_errors
+        run: |
+          echo "🔍 Checking API errors..."
+          echo "error_count<<EOF" >> $GITHUB_OUTPUT
+          docker-compose -f /var/www/auth-api/docker-compose.prod.yml logs --tail=500 api | \
+            grep -i "error\|exception\|failed" | wc -l >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+          echo ""
+          echo "📝 Recent Errors:"
+          docker-compose -f /var/www/auth-api/docker-compose.prod.yml logs --tail=500 api | \
+            grep -i "error\|exception\|failed" | tail -20 || echo "✅ No errors found"
+            
+      - name: 🔍 Check MySQL errors
+        run: |
+          echo ""
+          echo "🔍 Checking MySQL errors..."
+          docker-compose -f /var/www/auth-api/docker-compose.prod.yml logs --tail=200 mysql | \
+            grep -i "error\|warning" | tail -10 || echo "✅ No MySQL errors"
+            
+      - name: 🔍 Check Nginx errors
+        run: |
+          echo ""
+          echo "🔍 Checking Nginx errors..."
+          docker-compose -f /var/www/auth-api/docker-compose.prod.yml logs --tail=200 nginx | \
+            grep -i "error" | tail -10 || echo "✅ No Nginx errors"
+            
+      - name: 🏥 Test API endpoints
+        run: |
+          echo ""
+          echo "🏥 Testing API endpoints..."
+          
+          echo "1. Health check:"
+          curl -s https://auth.uzswlu.uz/api/health || echo "❌ Health check failed"
+          
+          echo ""
+          echo "2. Status check:"
+          curl -s https://auth.uzswlu.uz/ | grep -i "version\|swagger" || echo "❌ Status check failed"
+          
+          echo ""
+          echo "3. OAuth providers (public):"
+          curl -s https://auth.uzswlu.uz/api/oauth-providers/active | head -100 || echo "❌ OAuth check failed"
+          
+      - name: 📊 Database statistics
+        run: |
+          echo ""
+          echo "📊 Database Statistics:"
+          docker-compose -f /var/www/auth-api/docker-compose.prod.yml exec -T mysql mysql \
+            -u root -pP67ey4oyhQIzqM6qD0lbMNoDSa8BFbQGTC1TE4tvO5LUOtfH \
+            auth_management -e "
+              SELECT 
+                'Users' as table_name, COUNT(*) as count FROM user
+              UNION ALL
+              SELECT 'OAuth Accounts', COUNT(*) FROM user_oauth_accounts
+              UNION ALL
+              SELECT 'Roles', COUNT(*) FROM roles
+              UNION ALL
+              SELECT 'OAuth Providers', COUNT(*) FROM oauth_providers;
+            " || echo "⚠️  Database query failed"
+            
+      - name: 📈 System resources
+        run: |
+          echo ""
+          echo "📈 System Resources:"
+          echo "Disk usage:"
+          df -h /var/www/auth-api
+          
+          echo ""
+          echo "Docker disk usage:"
+          docker system df
+          
+      - name: ✅ Summary
+        run: |
+          echo ""
+          echo "✅ Error check completed!"
+          echo "API Errors found: ${{ steps.api_errors.outputs.error_count }}"
+

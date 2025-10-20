@@ -21,6 +21,7 @@ FRONTEND_CALLBACK_URL=http://localhost:3003/callback
 ## Configuration Details
 
 ### 1. **BACKEND_URL**
+
 - **Purpose:** The base URL of your backend API
 - **Used for:** OAuth callback redirects (e.g., `${BACKEND_URL}/api/auth/callback/hemis`)
 - **Examples:**
@@ -28,6 +29,7 @@ FRONTEND_CALLBACK_URL=http://localhost:3003/callback
   - Production: `https://auth.uzswlu.uz`
 
 ### 2. **FRONTEND_CALLBACK_URL**
+
 - **Purpose:** Where users are redirected after successful OAuth authentication
 - **Used for:** Final redirect with JWT tokens
 - **Examples:**
@@ -41,8 +43,8 @@ FRONTEND_CALLBACK_URL=http://localhost:3003/callback
 If environment variables are not set, the following defaults are used:
 
 ```typescript
-BACKEND_URL = 'http://localhost:3000'
-FRONTEND_CALLBACK_URL = 'http://localhost:3003/callback'
+BACKEND_URL = 'http://localhost:3000';
+FRONTEND_CALLBACK_URL = 'http://localhost:3003/callback';
 ```
 
 ---
@@ -130,8 +132,8 @@ If you need to update the URLs manually without re-seeding:
 docker-compose -f docker-compose.prod.yml exec -T mysql mysql \
   -u root -p'YOUR_PASSWORD' \
   auth_management -e "
-UPDATE oauth_providers 
-SET 
+UPDATE oauth_providers
+SET
   redirect_uri = 'https://auth.uzswlu.uz/api/auth/callback/hemis',
   front_redirect = 'https://your-frontend.com/callback'
 WHERE name='hemis';
@@ -143,11 +145,13 @@ WHERE name='hemis';
 ## Troubleshooting
 
 ### OAuth callback not being called
+
 - ✅ Check HEMIS admin panel has correct redirect URI
 - ✅ Verify `BACKEND_URL` in `.env.production`
 - ✅ Check database: `SELECT redirect_uri FROM oauth_providers WHERE name='hemis'`
 
 ### Users redirected to wrong URL after login
+
 - ✅ Check `FRONTEND_CALLBACK_URL` in `.env.production`
 - ✅ Check database: `SELECT front_redirect FROM oauth_providers WHERE name='hemis'`
 - ✅ Restart API: `docker-compose restart api`
@@ -157,11 +161,13 @@ WHERE name='hemis';
 ## Testing
 
 1. **Check API status:**
+
    ```bash
    curl https://auth.uzswlu.uz/api/health
    ```
 
 2. **Try OAuth login:**
+
    ```bash
    # In browser, visit:
    https://auth.uzswlu.uz/api/auth/login/hemis
@@ -180,7 +186,6 @@ WHERE name='hemis';
 ✅ Easy to switch between development and production  
 ✅ No code changes needed for different environments  
 ✅ Default values for local development  
-✅ CI/CD auto-deploys on push to `main`  
+✅ CI/CD auto-deploys on push to `main`
 
 🎯 **Next Step:** Update your frontend URL when you deploy it to production!
-

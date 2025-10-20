@@ -1,0 +1,72 @@
+name: 🔴 Full Production Reset
+
+on:
+  workflow_dispatch:  # Manual trigger only
+    inputs:
+      confirm:
+        description: 'Type "RESET" to confirm data deletion'
+        required: true
+        default: ''
+
+jobs:
+  confirm-reset:
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⚠️  Validate confirmation
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "RESET" ]; then
+            echo "❌ Confirmation failed! You must type 'RESET' to proceed."
+            exit 1
+          fi
+          echo "✅ Confirmation received. Proceeding with full reset..."
+
+  full-reset:
+    needs: confirm-reset
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 10
+    steps:
+      - name: 📋 Display reset information
+        run: |
+          echo "🔴 =============================================="
+          echo "🔴 FULL PRODUCTION RESET"
+          echo "🔴 All data will be deleted and recreated!"
+          echo "🔴 =============================================="
+          
+      - name: 🔄 Execute full reset
+        run: |
+          cd /var/www/auth-api
+          chmod +x scripts/full-reset-prod.sh
+          bash scripts/full-reset-prod.sh
+          
+      - name: 📊 Display final status
+        if: always()
+        run: |
+          echo ""
+          echo "📊 Container Status:"
+          docker-compose -f /var/www/auth-api/docker-compose.prod.yml ps
+          
+      - name: 📝 Display API logs
+        if: always()
+        run: |
+          echo ""
+          echo "📝 Recent API Logs:"
+          docker-compose -f /var/www/auth-api/docker-compose.prod.yml logs --tail=50 api
+          
+      - name: 🔍 Test API health
+        run: |
+          echo ""
+          echo "🔍 Testing API health..."
+          sleep 5
+          curl -s https://auth.uzswlu.uz/api/health || echo "⚠️  Health check failed"
+          
+      - name: ✅ Reset completed
+        run: |
+          echo ""
+          echo "✅ =============================================="
+          echo "✅ FULL RESET COMPLETED SUCCESSFULLY!"
+          echo "✅ =============================================="
+          echo ""
+          echo "🔗 API: https://auth.uzswlu.uz/"
+          echo "🔗 Swagger: https://auth.uzswlu.uz/"
+          echo "🔗 Health: https://auth.uzswlu.uz/api/health"
+
