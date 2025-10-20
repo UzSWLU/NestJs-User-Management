@@ -1,7 +1,7 @@
 name: 🔴 Full Production Reset
 
 on:
-  workflow_dispatch:  # Manual trigger only
+  workflow_dispatch: # Manual trigger only
     inputs:
       confirm:
         description: 'Type "RESET" to confirm data deletion'
@@ -32,33 +32,53 @@ jobs:
           echo "🔴 All data will be deleted and recreated!"
           echo "🔴 =============================================="
           
+      - name: 🔧 Ensure OAuth URLs in .env.production
+        run: |
+          cd /var/www/auth-api
+          
+          echo "🔍 Checking .env.production for OAuth URLs..."
+          
+          # Remove old OAuth URLs if they exist
+          sed -i '/^BACKEND_URL=/d' .env.production
+          sed -i '/^FRONTEND_CALLBACK_URL=/d' .env.production
+          sed -i '/^# OAuth URLs/d' .env.production
+          
+          # Add OAuth URLs
+          echo "" >> .env.production
+          echo "# OAuth URLs" >> .env.production
+          echo "BACKEND_URL=https://auth.uzswlu.uz" >> .env.production
+          echo "FRONTEND_CALLBACK_URL=https://front.uzswlu.uz/callback" >> .env.production
+          
+          echo "✅ OAuth URLs configured:"
+          grep -E "BACKEND_URL|FRONTEND_CALLBACK_URL" .env.production
+          
       - name: 🔄 Execute full reset
         run: |
           cd /var/www/auth-api
           chmod +x scripts/full-reset-prod.sh
           bash scripts/full-reset-prod.sh
-          
+
       - name: 📊 Display final status
         if: always()
         run: |
           echo ""
           echo "📊 Container Status:"
           docker-compose -f /var/www/auth-api/docker-compose.prod.yml ps
-          
+
       - name: 📝 Display API logs
         if: always()
         run: |
           echo ""
           echo "📝 Recent API Logs:"
           docker-compose -f /var/www/auth-api/docker-compose.prod.yml logs --tail=50 api
-          
+
       - name: 🔍 Test API health
         run: |
           echo ""
           echo "🔍 Testing API health..."
           sleep 5
           curl -s https://auth.uzswlu.uz/api/health || echo "⚠️  Health check failed"
-          
+
       - name: ✅ Reset completed
         run: |
           echo ""
@@ -69,4 +89,3 @@ jobs:
           echo "🔗 API: https://auth.uzswlu.uz/"
           echo "🔗 Swagger: https://auth.uzswlu.uz/"
           echo "🔗 Health: https://auth.uzswlu.uz/api/health"
-

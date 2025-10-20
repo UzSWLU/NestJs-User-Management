@@ -11,10 +11,12 @@ Bu qo'llanma sizga **serverga SSH qilmasdan** GitHub orqali production'ni to'liq
 **File:** `.github/workflows/deploy.yml`
 
 **Qachon ishlaydi:**
+
 - `main` branch'ga push qilganingizda
 - Avtomatik ravishda server'da deploy qiladi
 
 **Nima qiladi:**
+
 ```bash
 ✅ Code'ni pull qiladi
 ✅ Docker container'larni rebuild qiladi
@@ -23,6 +25,7 @@ Bu qo'llanma sizga **serverga SSH qilmasdan** GitHub orqali production'ni to'liq
 ```
 
 **Ishlatish:**
+
 ```bash
 # Local'da
 git add .
@@ -39,6 +42,7 @@ git push origin main
 **File:** `.github/workflows/full-reset.yml`
 
 **Qachon ishlatish kerak:**
+
 - Database'ni butunlay yangilash kerak bo'lganda
 - Seed'larni qaytadan yuklash kerak bo'lganda
 - Fresh install kerak bo'lganda (local kabi)
@@ -54,6 +58,7 @@ git push origin main
 5. **"Run workflow"** (yashil tugma)
 
 **Nima qiladi:**
+
 ```bash
 ✅ Git pull (latest code)
 ✅ Stop all containers
@@ -73,6 +78,7 @@ git push origin main
 **File:** `.github/workflows/check-errors.yml`
 
 **Qachon ishlaydi:**
+
 - Har 6 soatda avtomatik
 - Yoki manual trigger qilsangiz
 
@@ -83,6 +89,7 @@ git push origin main
 3. **"Run workflow"** tugmasini bosing
 
 **Nima qiladi:**
+
 ```bash
 ✅ Container status
 ✅ API errors (last 500 lines)
@@ -94,6 +101,7 @@ git push origin main
 ```
 
 **Log'larni Ko'rish:**
+
 - GitHub Actions'da run'ni oching
 - Har bir step'ning log'larini ko'rasiz
 
@@ -163,10 +171,12 @@ git push origin main
 ## 🔗 Foydali Havolalar
 
 ### GitHub:
+
 - **Actions:** `https://github.com/a-d-sh/NestJs-User-Management/actions`
 - **Workflows:** `.github/workflows/`
 
 ### Production:
+
 - **API:** `https://auth.uzswlu.uz/`
 - **Swagger:** `https://auth.uzswlu.uz/`
 - **Health:** `https://auth.uzswlu.uz/api/health`
@@ -189,7 +199,7 @@ git push origin main
 name: My Custom Workflow
 
 on:
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch: # Manual trigger
 
 jobs:
   my-job:
@@ -232,20 +242,19 @@ docker-compose -f docker-compose.prod.yml restart api
 ✅ **History** - Har bir deploy tarixi  
 ✅ **Automatic** - Push qiling, deploy bo'ladi  
 ✅ **Safe** - Confirmation'lar bor  
-✅ **Fast** - 30 sekund ichida deploy  
+✅ **Fast** - 30 sekund ichida deploy
 
 ---
 
 ## 🎯 Summary
 
-| Action | Method | Time |
-|--------|--------|------|
-| **Deploy Code** | Push to `main` | ~30s auto |
-| **Full Reset** | GitHub Actions (manual) | ~10min |
-| **Check Errors** | GitHub Actions (manual/auto) | ~1min |
-| **View Logs** | GitHub Actions UI | instant |
+| Action           | Method                       | Time      |
+| ---------------- | ---------------------------- | --------- |
+| **Deploy Code**  | Push to `main`               | ~30s auto |
+| **Full Reset**   | GitHub Actions (manual)      | ~10min    |
+| **Check Errors** | GitHub Actions (manual/auto) | ~1min     |
+| **View Logs**    | GitHub Actions UI            | instant   |
 
 **Endi serverga SSH qilishingiz shart emas!** 🚀
 
 GitHub orqali **barchasi** boshqariladi! 🎮
-

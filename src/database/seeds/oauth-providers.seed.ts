@@ -16,6 +16,9 @@ export async function seedOAuthProviders(dataSource: DataSource) {
   // Environment-based URLs
   const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
   const frontendCallbackUrl = process.env.FRONTEND_CALLBACK_URL || 'http://localhost:3003/callback';
+  
+  console.log(`📍 Backend URL: ${backendUrl}`);
+  console.log(`📍 Frontend Callback: ${frontendCallbackUrl}`);
 
   const providers = providerRepo.create([
     {
