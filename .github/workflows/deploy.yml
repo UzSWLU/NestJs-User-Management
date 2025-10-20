@@ -10,6 +10,16 @@ jobs:
     runs-on: [self-hosted, Linux, X64]
     steps:
       # Code is already on the server; just pull latest and rebuild
+      - name: Pre-pull base images (retry)
+        run: |
+          set -e
+          for i in 1 2 3 4 5; do
+            if docker pull node:20-alpine; then
+              break
+            fi
+            echo "Retry $i...";
+            sleep 10
+          done
       - name: Pull latest and rebuild
         run: |
           cd /var/www/auth-api
