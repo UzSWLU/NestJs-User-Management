@@ -12,10 +12,10 @@ jobs:
   deploy:
     name: Deploy
     runs-on: [self-hosted, Linux, X64]
-    timeout-minutes: 3
+    timeout-minutes: 5
     steps:
       - name: Deploy
-        timeout-minutes: 3
+        timeout-minutes: 5
         run: |
           set -e
           cd /var/www/auth-api
@@ -24,18 +24,12 @@ jobs:
           git fetch origin main
           git reset --hard origin/main
           
-          echo "🔨 Building TypeScript..."
-          npm ci --prefer-offline --no-audit 2>/dev/null || echo "npm ci skipped"
-          npm run build
+          echo "🔄 Redeploying with latest code..."
+          docker-compose -f docker-compose.prod.yml down
+          docker-compose -f docker-compose.prod.yml up -d
           
-          echo "📦 Copying to container..."
-          docker cp dist/. management-api-prod:/app/dist/
-          
-          echo "🔄 Restarting container..."
-          docker-compose -f docker-compose.prod.yml restart api
-          
-          echo "⏳ Waiting..."
-          sleep 3
+          echo "⏳ Waiting for containers..."
+          sleep 10
           
           echo "✅ Deployed!"
           docker-compose -f docker-compose.prod.yml ps

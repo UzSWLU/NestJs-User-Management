@@ -3,6 +3,7 @@
 ## ✅ Hozirgi Holat
 
 ### Server
+
 ```
 ✅ API: Running (Docker)
 ✅ MySQL: Running (Docker)
@@ -12,6 +13,7 @@
 ```
 
 ### GitHub
+
 ```
 ✅ Code: Yangilangan
 ✅ Secrets: To'liq (SSH_PRIVATE_KEY, SERVER_HOST, SERVER_USER)
@@ -66,6 +68,7 @@ docker pull phpmyadmin:latest
 ```
 
 **GitHub Actions:**
+
 - ✅ Cache'dan build qiladi
 - ✅ Docker Hub kerak bo'lmaydi
 
@@ -121,14 +124,17 @@ docker-compose -f docker-compose.prod.yml up -d --build
 ## 🎯 Hozirgi Tavsiya
 
 **A) Docker Hub tiklanishini kutish** (30-60 daqiqa)
+
 - Eng oddiy
 - Hech narsa o'zgartirmasdan
 
 **B) Bazaviy image'larni oldindan pull qilish** (Docker Hub qisqa vaqt ishlasa)
+
 - `docker pull node:20-alpine`
 - Keyin cache'dan ishlaydi
 
 **C) Qo'lda deploy qilish** (hozir)
+
 ```bash
 ssh root@172.22.0.19 'cd /var/www/auth-api && git pull && docker-compose -f docker-compose.prod.yml up -d --build'
 ```
@@ -137,14 +143,14 @@ ssh root@172.22.0.19 'cd /var/www/auth-api && git pull && docker-compose -f dock
 
 ## ✅ Qisqa Xulosa
 
-| Nima | Holati |
-|------|---------|
-| **Server API** | ✅ Ishlayapti |
-| **Docker** | ✅ Running |
-| **GitHub Code** | ✅ Yangilangan |
-| **Self-hosted Runner** | ✅ Active |
-| **CI/CD Workflow** | ✅ Tayyor |
-| **Docker Hub** | ❌ 503 Error (tashqi) |
+| Nima                   | Holati                |
+| ---------------------- | --------------------- |
+| **Server API**         | ✅ Ishlayapti         |
+| **Docker**             | ✅ Running            |
+| **GitHub Code**        | ✅ Yangilangan        |
+| **Self-hosted Runner** | ✅ Active             |
+| **CI/CD Workflow**     | ✅ Tayyor             |
+| **Docker Hub**         | ❌ 503 Error (tashqi) |
 
 **Docker Hub tiklanishi bilan** - **hammasi avtomatik ishlaydi!** 🎉
 
@@ -167,4 +173,3 @@ ssh root@172.22.0.19 'cd /var/www/auth-api && git pull && docker-compose -f dock
 ---
 
 **Docker Hub tiklanishini kutamizmi yoki boshqa yechim kerakmi?** 🎯
-
