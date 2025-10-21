@@ -121,8 +121,8 @@ export class RolesController {
             description: 'System creator with full access',
             is_system: true,
             permissions: [
-              { id: 1, permission: { id: 1, name: 'users.read' } },
-              { id: 2, permission: { id: 2, name: 'users.create' } },
+              { id: 1, permission: { id: 1, name: 'GET /api/users' } },
+              { id: 2, permission: { id: 2, name: 'POST /api/users' } },
             ],
           },
         ],
@@ -167,8 +167,8 @@ export class RolesController {
         created_at: '2025-10-15T05:46:34.088Z',
         updated_at: '2025-10-15T05:46:34.088Z',
         permissions: [
-          { id: 1, permission: { id: 1, name: 'users.read', description: 'View users' } },
-          { id: 2, permission: { id: 2, name: 'users.create', description: 'Create users' } },
+          { id: 1, permission: { id: 1, name: 'GET /api/users', description: 'View users list' } },
+          { id: 2, permission: { id: 2, name: 'POST /api/users', description: 'Create new user' } },
         ],
       },
     },
@@ -233,7 +233,7 @@ export class RolesController {
         description: 'Updated description',
         is_system: false,
         permissions: [
-          { id: 1, permission: { id: 1, name: 'users.read' } },
+          { id: 1, permission: { id: 1, name: 'GET /api/users' } },
         ],
       },
     },

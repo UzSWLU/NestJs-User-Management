@@ -2,7 +2,7 @@ import { IsString, IsOptional, IsInt } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreatePermissionDto {
-  @ApiProperty({ example: 'users.create' })
+  @ApiProperty({ example: 'GET /api/users' })
   @IsString()
   name: string;
 

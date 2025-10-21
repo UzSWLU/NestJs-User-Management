@@ -19,7 +19,7 @@
 #### 3. **Manager** 👀
 
 - **Tavsif:** Menejer, faqat ko'rish huquqi
-- **Permissionlar:** Faqat `*.read` permissionlar (8 ta)
+- **Permissionlar:** Faqat `GET` endpoints (barcha read operations)
 - **Qanday olish:** Creator yoki Admin tomonidan tayinlanadi
 
 #### 4. **User** 👤
@@ -30,67 +30,93 @@
 
 ---
 
-## 📋 Permissionlar Ro'yxati (31 ta)
+## 📋 Permissionlar Ro'yxati (Endpoint Format)
 
-### 1. User Management (5 permissions)
-
-```
-- users.read          → Foydalanuvchilarni ko'rish
-- users.create        → Yangi foydalanuvchi yaratish
-- users.update        → Foydalanuvchi ma'lumotlarini yangilash
-- users.delete        → Foydalanuvchini o'chirish
-- users.assignRole    → Foydalanuvchiga rol biriktirish
-```
-
-### 2. Role Management (8 permissions)
+### 1. User Management
 
 ```
-- roles.read          → Rollarni ko'rish
-- roles.create        → Yangi rol yaratish
-- roles.update        → Rol ma'lumotlarini yangilash
-- roles.delete        → Rolni o'chirish
-- permissions.read    → Permissionlarni ko'rish
-- permissions.create  → Yangi permission yaratish
-- permissions.update  → Permission yangilash
-- permissions.delete  → Permission o'chirish
+GET    /api/users                      → Foydalanuvchilarni ko'rish
+GET    /api/users/:id                  → Foydalanuvchi ma'lumotlari
+POST   /api/users                      → Yangi foydalanuvchi yaratish
+PATCH  /api/users/:id                  → Foydalanuvchi yangilash
+DELETE /api/users/:id                  → Foydalanuvchini o'chirish
+GET    /api/users/:id/roles            → Foydalanuvchi rollarini ko'rish
+POST   /api/users/:id/roles            → Rol biriktirish
+DELETE /api/users/:id/roles/:roleId    → Rolni olib tashlash
 ```
 
-### 3. Company Management (5 permissions)
+### 2. Role Management
 
 ```
-- companies.read      → Kompaniyalarni ko'rish
-- companies.create    → Yangi kompaniya yaratish
-- companies.update    → Kompaniya ma'lumotlarini yangilash
-- companies.delete    → Kompaniyani o'chirish
-- companies.uploadLogo → Kompaniya logosini yuklash
+GET    /api/roles                      → Rollarni ko'rish
+GET    /api/roles/:id                  → Rol ma'lumotlari
+POST   /api/roles                      → Yangi rol yaratish
+PATCH  /api/roles/:id                  → Rol yangilash
+DELETE /api/roles/:id                  → Rolni o'chirish
 ```
 
-### 4. OAuth Management (7 permissions)
+### 3. Permission Management
 
 ```
-- oauth.providers.read    → OAuth providerlarni ko'rish
-- oauth.providers.create  → Yangi provider yaratish
-- oauth.providers.update  → Provider yangilash
-- oauth.providers.delete  → Provider o'chirish
-- oauth.accounts.read     → OAuth accountlarni ko'rish
-- oauth.accounts.link     → OAuth account biriktirish
-- oauth.accounts.unlink   → OAuth account uzish
+GET    /api/permissions                → Permissionlarni ko'rish
+GET    /api/permissions/:id            → Permission ma'lumotlari
+POST   /api/permissions                → Yangi permission yaratish
+PATCH  /api/permissions/:id            → Permission yangilash
+DELETE /api/permissions/:id            → Permission o'chirish
 ```
 
-### 5. Auto Role Rules (4 permissions)
+### 4. Company Management
 
 ```
-- autoRoleRules.read      → Qoidalarni ko'rish
-- autoRoleRules.create    → Yangi qoida yaratish
-- autoRoleRules.update    → Qoidani yangilash
-- autoRoleRules.delete    → Qoidani o'chirish
+GET    /api/companies                  → Kompaniyalarni ko'rish
+GET    /api/companies/:id              → Kompaniya ma'lumotlari
+POST   /api/companies                  → Yangi kompaniya yaratish
+PATCH  /api/companies/:id              → Kompaniya yangilash
+DELETE /api/companies/:id              → Kompaniyani o'chirish
+POST   /api/companies/:id/upload-logo  → Logo yuklash
 ```
 
-### 6. User Merge (2 permissions)
+### 5. OAuth Management
 
 ```
-- userMerge.read          → Merge tarixini ko'rish
-- userMerge.merge         → Userlarni birlashtirish
+GET    /api/oauth-providers                         → OAuth providerlar
+GET    /api/oauth-providers/:id                     → Provider ma'lumotlari
+POST   /api/oauth-providers                         → Provider yaratish
+PATCH  /api/oauth-providers/:id                     → Provider yangilash
+DELETE /api/oauth-providers/:id                     → Provider o'chirish
+PATCH  /api/oauth-providers/:id/toggle-active       → Faollikni o'zgartirish
+GET    /api/oauth-accounts                          → OAuth accountlar
+GET    /api/oauth-accounts/user/:userId             → User accountlari
+POST   /api/oauth-accounts/user/:userId/link        → Account biriktirish
+DELETE /api/oauth-accounts/user/:userId/accounts/:accountId → Account uzish
+```
+
+### 6. Auto Role Rules
+
+```
+GET    /api/auto-role-rules                         → Qoidalar ro'yxati
+GET    /api/auto-role-rules/:id                     → Qoida ma'lumotlari
+GET    /api/auto-role-rules/provider/:providerId    → Provider qoidalari
+POST   /api/auto-role-rules                         → Qoida yaratish
+PATCH  /api/auto-role-rules/:id                     → Qoida yangilash
+DELETE /api/auto-role-rules/:id                     → Qoida o'chirish
+```
+
+### 7. User Merge
+
+```
+GET    /api/user-merge                  → Merge tarixi
+GET    /api/user-merge/:id              → Merge ma'lumotlari
+GET    /api/user-merge/user/:userId     → User merge tarixi
+POST   /api/user-merge                  → Userlarni birlashtirish
+```
+
+### 8. User Profiles
+
+```
+GET    /api/user-profiles/me            → O'z profilimni ko'rish
+GET    /api/user-profiles/all           → Barcha profillar
+POST   /api/user-profiles/preferences   → Sozlamalarni saqlash
 ```
 
 ---

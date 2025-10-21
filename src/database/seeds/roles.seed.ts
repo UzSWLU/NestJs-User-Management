@@ -53,145 +53,219 @@ export async function seedRolesAndPermissions(dataSource: DataSource) {
     mergeGroup,
   ]);
 
-  // Create Permissions
+  // Create Permissions (Endpoint-based naming)
   const permissions = await permissionRepo.save([
     // User permissions
-    { name: 'users.read', description: 'View users', group: userGroup },
-    { name: 'users.create', description: 'Create users', group: userGroup },
-    { name: 'users.update', description: 'Update users', group: userGroup },
-    { name: 'users.delete', description: 'Delete users', group: userGroup },
+    { name: 'GET /api/users', description: 'View users list', group: userGroup },
+    { name: 'GET /api/users/:id', description: 'View specific user', group: userGroup },
+    { name: 'POST /api/users', description: 'Create new user', group: userGroup },
+    { name: 'PATCH /api/users/:id', description: 'Update user', group: userGroup },
+    { name: 'DELETE /api/users/:id', description: 'Delete user', group: userGroup },
     {
-      name: 'users.assignRole',
-      description: 'Assign roles to users',
+      name: 'GET /api/users/:id/roles',
+      description: 'View user roles',
+      group: userGroup,
+    },
+    {
+      name: 'POST /api/users/:id/roles',
+      description: 'Assign role to user',
+      group: userGroup,
+    },
+    {
+      name: 'DELETE /api/users/:id/roles/:roleId',
+      description: 'Remove role from user',
       group: userGroup,
     },
 
     // Role permissions
-    { name: 'roles.read', description: 'View roles', group: roleGroup },
-    { name: 'roles.create', description: 'Create roles', group: roleGroup },
-    { name: 'roles.update', description: 'Update roles', group: roleGroup },
-    { name: 'roles.delete', description: 'Delete roles', group: roleGroup },
+    { name: 'GET /api/roles', description: 'View roles list', group: roleGroup },
+    { name: 'GET /api/roles/:id', description: 'View specific role', group: roleGroup },
+    { name: 'POST /api/roles', description: 'Create new role', group: roleGroup },
+    { name: 'PATCH /api/roles/:id', description: 'Update role', group: roleGroup },
+    { name: 'DELETE /api/roles/:id', description: 'Delete role', group: roleGroup },
 
     // Permission permissions
     {
-      name: 'permissions.read',
-      description: 'View permissions',
+      name: 'GET /api/permissions',
+      description: 'View permissions list',
       group: roleGroup,
     },
     {
-      name: 'permissions.create',
-      description: 'Create permissions',
+      name: 'GET /api/permissions/:id',
+      description: 'View specific permission',
       group: roleGroup,
     },
     {
-      name: 'permissions.update',
-      description: 'Update permissions',
+      name: 'POST /api/permissions',
+      description: 'Create new permission',
       group: roleGroup,
     },
     {
-      name: 'permissions.delete',
-      description: 'Delete permissions',
+      name: 'PATCH /api/permissions/:id',
+      description: 'Update permission',
+      group: roleGroup,
+    },
+    {
+      name: 'DELETE /api/permissions/:id',
+      description: 'Delete permission',
       group: roleGroup,
     },
 
     // Company permissions
     {
-      name: 'companies.read',
-      description: 'View companies',
+      name: 'GET /api/companies',
+      description: 'View companies list',
       group: companyGroup,
     },
     {
-      name: 'companies.create',
-      description: 'Create companies',
+      name: 'GET /api/companies/:id',
+      description: 'View specific company',
       group: companyGroup,
     },
     {
-      name: 'companies.update',
-      description: 'Update companies',
+      name: 'POST /api/companies',
+      description: 'Create new company',
       group: companyGroup,
     },
     {
-      name: 'companies.delete',
-      description: 'Delete companies',
+      name: 'PATCH /api/companies/:id',
+      description: 'Update company',
       group: companyGroup,
     },
     {
-      name: 'companies.uploadLogo',
-      description: 'Upload company logos',
+      name: 'DELETE /api/companies/:id',
+      description: 'Delete company',
+      group: companyGroup,
+    },
+    {
+      name: 'POST /api/companies/:id/upload-logo',
+      description: 'Upload company logo',
       group: companyGroup,
     },
 
     // OAuth Provider permissions
     {
-      name: 'oauth.providers.read',
-      description: 'View OAuth providers',
+      name: 'GET /api/oauth-providers',
+      description: 'View OAuth providers list',
       group: oauthGroup,
     },
     {
-      name: 'oauth.providers.create',
-      description: 'Create OAuth providers',
+      name: 'GET /api/oauth-providers/:id',
+      description: 'View specific OAuth provider',
       group: oauthGroup,
     },
     {
-      name: 'oauth.providers.update',
-      description: 'Update OAuth providers',
+      name: 'POST /api/oauth-providers',
+      description: 'Create OAuth provider',
       group: oauthGroup,
     },
     {
-      name: 'oauth.providers.delete',
-      description: 'Delete OAuth providers',
+      name: 'PATCH /api/oauth-providers/:id',
+      description: 'Update OAuth provider',
+      group: oauthGroup,
+    },
+    {
+      name: 'DELETE /api/oauth-providers/:id',
+      description: 'Delete OAuth provider',
+      group: oauthGroup,
+    },
+    {
+      name: 'PATCH /api/oauth-providers/:id/toggle-active',
+      description: 'Toggle OAuth provider active status',
       group: oauthGroup,
     },
 
     // OAuth Account permissions
     {
-      name: 'oauth.accounts.read',
-      description: 'View OAuth accounts',
+      name: 'GET /api/oauth-accounts',
+      description: 'View all OAuth accounts',
       group: oauthGroup,
     },
     {
-      name: 'oauth.accounts.link',
-      description: 'Link OAuth accounts',
+      name: 'GET /api/oauth-accounts/user/:userId',
+      description: 'View user OAuth accounts',
       group: oauthGroup,
     },
     {
-      name: 'oauth.accounts.unlink',
-      description: 'Unlink OAuth accounts',
+      name: 'POST /api/oauth-accounts/user/:userId/link',
+      description: 'Link OAuth account to user',
+      group: oauthGroup,
+    },
+    {
+      name: 'DELETE /api/oauth-accounts/user/:userId/accounts/:accountId',
+      description: 'Unlink OAuth account',
       group: oauthGroup,
     },
 
     // Auto Role Rules permissions
     {
-      name: 'autoRoleRules.read',
-      description: 'View auto role rules',
+      name: 'GET /api/auto-role-rules',
+      description: 'View auto role rules list',
       group: autoRoleGroup,
     },
     {
-      name: 'autoRoleRules.create',
-      description: 'Create auto role rules',
+      name: 'GET /api/auto-role-rules/:id',
+      description: 'View specific auto role rule',
       group: autoRoleGroup,
     },
     {
-      name: 'autoRoleRules.update',
-      description: 'Update auto role rules',
+      name: 'GET /api/auto-role-rules/provider/:providerId',
+      description: 'View auto role rules for provider',
       group: autoRoleGroup,
     },
     {
-      name: 'autoRoleRules.delete',
-      description: 'Delete auto role rules',
+      name: 'POST /api/auto-role-rules',
+      description: 'Create auto role rule',
+      group: autoRoleGroup,
+    },
+    {
+      name: 'PATCH /api/auto-role-rules/:id',
+      description: 'Update auto role rule',
+      group: autoRoleGroup,
+    },
+    {
+      name: 'DELETE /api/auto-role-rules/:id',
+      description: 'Delete auto role rule',
       group: autoRoleGroup,
     },
 
     // User Merge permissions
     {
-      name: 'userMerge.read',
-      description: 'View merge history',
+      name: 'GET /api/user-merge',
+      description: 'View merge history list',
       group: mergeGroup,
     },
     {
-      name: 'userMerge.merge',
+      name: 'GET /api/user-merge/:id',
+      description: 'View specific merge history',
+      group: mergeGroup,
+    },
+    {
+      name: 'GET /api/user-merge/user/:userId',
+      description: 'View user merge history',
+      group: mergeGroup,
+    },
+    {
+      name: 'POST /api/user-merge',
       description: 'Merge user accounts',
       group: mergeGroup,
+    },
+
+    // User Profile permissions
+    {
+      name: 'GET /api/user-profiles/me',
+      description: 'View own user profile',
+      group: userGroup,
+    },
+    {
+      name: 'GET /api/user-profiles/all',
+      description: 'View all user profiles',
+      group: userGroup,
+    },
+    {
+      name: 'POST /api/user-profiles/preferences',
+      description: 'Set user profile preferences',
+      group: userGroup,
     },
   ]);
 
@@ -252,9 +326,9 @@ export async function seedRolesAndPermissions(dataSource: DataSource) {
   );
   await rolePermRepo.save(adminPermissions);
 
-  // Assign read-only permissions to manager
+  // Assign read-only permissions to manager (all GET endpoints)
   const readPermissions = permissions
-    .filter((p) => p.name.includes('.read'))
+    .filter((p) => p.name.startsWith('GET '))
     .map((perm) =>
       rolePermRepo.create({ role: managerRole, permission: perm }),
     );

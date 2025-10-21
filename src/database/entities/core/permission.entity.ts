@@ -10,7 +10,7 @@ export class Permission {
   group: PermissionGroup | null;
 
   @Column({ length: 100, unique: true })
-  name: string; // masalan: 'user.create', 'user.delete'
+  name: string; // Endpoint format: 'GET /api/users', 'POST /api/users/:id'
 
   @Column({ length: 255, nullable: true })
   description: string;

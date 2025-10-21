@@ -118,53 +118,63 @@ export class AuthController {
     );
   }
 
-  @Get('me')
+  @Get('my-role')
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Get current user profile',
-    description: 'Get authenticated user details with roles and permissions.',
+    summary: 'Get current user roles and permissions',
+    description: 'Get authenticated user roles and their permissions only.',
   })
   @ApiResponse({
     status: 200,
-    description: 'User profile retrieved successfully',
+    description: 'User roles and permissions retrieved successfully',
     schema: {
       example: {
-        id: 1,
-        username: 'john_doe',
-        email: 'john.doe@example.com',
-        phone: null,
-        status: 'active',
-        email_verified: false,
-        phone_verified: false,
-        last_login_at: '2025-10-15T11:30:28.923Z',
-        created_at: '2025-10-15T11:16:13.582Z',
         roles: [
           {
             id: 1,
-            role: {
-              id: 1,
-              name: 'creator',
-              description: 'System creator with full access',
-              is_system: true,
-              permissions: [
-                {
-                  id: 1,
-                  permission: {
-                    id: 1,
-                    name: 'users.read',
-                    description: 'View users',
-                  },
-                },
-              ],
-            },
+            name: 'creator',
+            description: 'System creator with full access',
+            is_system: true,
+            permissions: [
+              {
+                id: 1,
+                name: 'GET /api/users',
+                description: 'View users list',
+              },
+              {
+                id: 2,
+                name: 'POST /api/users',
+                description: 'Create new user',
+              },
+              {
+                id: 3,
+                name: 'PATCH /api/users/:id',
+                description: 'Update user',
+              },
+            ],
           },
         ],
       },
     },
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async getCurrentUser(@CurrentUser() user: any) {
-    return this.authService.getCurrentUser(user.id);
+  async getCurrentUserRole(@CurrentUser() user: any) {
+    const fullUser = await this.authService.getCurrentUser(user.id);
+    
+    // Extract only roles and permissions
+    const roles = fullUser.roles?.map(userRole => ({
+      id: userRole.role.id,
+      name: userRole.role.name,
+      description: userRole.role.description,
+      is_system: userRole.role.is_system,
+      permissions: userRole.role.permissions?.map(rolePermission => ({
+        id: rolePermission.permission.id,
+        name: rolePermission.permission.name,
+        description: rolePermission.permission.description,
+      })) || [],
+    })) || [];
+    
+    return { roles };
   }
 
   @Public()
