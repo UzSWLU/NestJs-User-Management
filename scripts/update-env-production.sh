@@ -60,3 +60,5 @@ echo "🎯 OAuth URLs configured!"
 echo "   Backend: https://auth.uzswlu.uz"
 echo "   Frontend: https://front.uzswlu.uz/callback"
 
+
+

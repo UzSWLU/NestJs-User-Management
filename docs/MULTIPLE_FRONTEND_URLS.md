@@ -257,3 +257,5 @@ class OAuthLogin {
 | **Custom**     | Any URL                            | Query param: `?returnUrl=...` |
 
 **Hamma narsa bir .env variable bilan!** 🎉
+
+

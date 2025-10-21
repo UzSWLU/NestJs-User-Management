@@ -222,3 +222,5 @@ After everything is configured:
 3. **Check frontend:** Should receive tokens at `https://front.uzswlu.uz/callback`
 
 **All done via GitHub - no SSH needed!** 🎉
+
+

@@ -258,3 +258,5 @@ docker-compose -f docker-compose.prod.yml restart api
 **Endi serverga SSH qilishingiz shart emas!** 🚀
 
 GitHub orqali **barchasi** boshqariladi! 🎮
+
+

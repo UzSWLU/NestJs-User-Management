@@ -173,3 +173,5 @@ ssh root@172.22.0.19 'cd /var/www/auth-api && git pull && docker-compose -f dock
 ---
 
 **Docker Hub tiklanishini kutamizmi yoki boshqa yechim kerakmi?** 🎯
+
+
