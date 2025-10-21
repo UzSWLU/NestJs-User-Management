@@ -1099,13 +1099,13 @@ export class AuthController {
 
             function testAPI() {
               const token = document.getElementById('accessToken').textContent;
-              fetch('${process.env.BACKEND_URL || 'http://localhost:3000'}/api/auth/me', {
+              fetch('${process.env.BACKEND_URL || 'http://localhost:3000'}/api/auth/my-role', {
                 headers: { 'Authorization': 'Bearer ' + token }
               })
               .then(res => res.json())
               .then(data => {
                 alert('API Test Successful! Check console for details.');
-                console.log('User Profile:', data);
+                console.log('User Roles & Permissions:', data);
               })
               .catch(err => {
                 alert('API Test Failed: ' + err.message);

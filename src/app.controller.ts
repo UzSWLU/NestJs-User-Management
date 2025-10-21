@@ -26,8 +26,8 @@ export class AppController {
     return {
       status: 'ok',
       message: 'User Management API is running',
-      version: '2.0.0',
-      deployed: 'Endpoint-based permissions!',
+      version: '2.0.1',
+      deployed: 'Fixed /me reference in HTML!',
       timezone: 'Asia/Tashkent (UTC+5)',
       currentTime: DateUtil.toReadableString(),
       timestamp: DateUtil.toISOString(),
