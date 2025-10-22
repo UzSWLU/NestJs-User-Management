@@ -15,28 +15,29 @@ export class PaginationDto {
   page?: number = 1;
 
   @ApiPropertyOptional({
-    description: 'Number of items per page',
-    example: 10,
+    description: 'Number of items per page (default: 100, max: 1000)',
+    example: 100,
     minimum: 1,
+    maximum: 1000,
   })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  limit?: number = 10;
+  limit?: number = 100;
 
   /**
    * Calculate skip value for database query
    */
   get skip(): number {
-    return ((this.page || 1) - 1) * (this.limit || 10);
+    return ((this.page || 1) - 1) * (this.limit || 100);
   }
 
   /**
    * Get take value (alias for limit)
    */
   get take(): number {
-    return this.limit || 10;
+    return this.limit || 100;
   }
 }
 

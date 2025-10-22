@@ -26,8 +26,8 @@ export class AppController {
     return {
       status: 'ok',
       message: 'User Management API is running',
-      version: '2.1.0',
-      deployed: 'Permissions module with full Swagger docs + RBAC implementation',
+      version: '2.2.0',
+      deployed: 'Pagination limit increased to 1000 (default 100) for better UX',
       timezone: 'Asia/Tashkent (UTC+5)',
       currentTime: DateUtil.toReadableString(),
       timestamp: DateUtil.toISOString(),
