@@ -39,7 +39,10 @@ jobs:
            echo "🔧 Creating server-level Nginx configuration for auth.uzswlu.uz..."
            
            # Create SSL certificate directory with proper permissions
+           mkdir -p /etc/nginx/ssl
            mkdir -p /etc/nginx/ssl/auth.uzswlu.uz
+           chmod 755 /etc/nginx/ssl
+           chmod 755 /etc/nginx/ssl/auth.uzswlu.uz
            
            # Copy SSL certificates
            cp /var/www/sertifikat/STAR25_uzswlu_uz.crt /etc/nginx/ssl/auth.uzswlu.uz/
