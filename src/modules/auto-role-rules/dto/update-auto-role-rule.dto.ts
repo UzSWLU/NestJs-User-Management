@@ -6,3 +6,4 @@ export class UpdateAutoRoleRuleDto extends PartialType(CreateAutoRoleRuleDto) {}
 
 
 
+

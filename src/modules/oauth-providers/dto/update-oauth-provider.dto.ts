@@ -6,3 +6,4 @@ export class UpdateOAuthProviderDto extends PartialType(CreateOAuthProviderDto) 
 
 
 
+
