@@ -37,11 +37,11 @@ jobs:
 
           # Complete Server Nginx Management for auth.uzswlu.uz
           echo "🔧 Complete Server Nginx Management for auth.uzswlu.uz..."
-          
+
           # 1. Create SSL certificate directory for auth.uzswlu.uz
           echo "📁 Creating SSL certificate directory..."
           sudo mkdir -p /etc/nginx/ssl/auth.uzswlu.uz
-          
+
           # 2. Copy existing SSL certificates
           echo "🔒 Copying SSL certificates..."
           if [ -f "/var/www/sertifikat/STAR25_uzswlu_uz.crt" ]; then
@@ -58,7 +58,7 @@ jobs:
               -out /etc/nginx/ssl/auth.uzswlu.uz/STAR25_uzswlu_uz.crt \
               -subj "/C=UZ/ST=Tashkent/L=Tashkent/O=Auth API/OU=IT Department/CN=auth.uzswlu.uz"
           fi
-          
+
           # 3. Create comprehensive Nginx configuration for auth.uzswlu.uz
           echo "📝 Creating comprehensive Nginx configuration for auth.uzswlu.uz..."
           sudo rm -f /etc/nginx/sites-available/auth.uzswlu.uz
@@ -137,11 +137,11 @@ jobs:
           echo "        add_header Cache-Control \"public, immutable\";" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
           echo "    }" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
           echo "}" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          
+
           # 4. Enable auth.uzswlu.uz site
           echo "✅ Enabling auth.uzswlu.uz site..."
           sudo ln -sf /etc/nginx/sites-available/auth.uzswlu.uz /etc/nginx/sites-enabled/
-          
+
           # 5. Test Nginx configuration
           echo "🧪 Testing Nginx configuration..."
           if sudo nginx -t; then
@@ -151,14 +151,14 @@ jobs:
             sudo nginx -t
             exit 1
           fi
-          
+
           # 6. Reload Nginx
           echo "🔄 Reloading Nginx..."
           sudo nginx -s reload
-          
+
           # 7. Verify Nginx is running
           echo "🔍 Verifying Nginx status..."
           sudo systemctl status nginx --no-pager -l
-          
+
           echo "✅ Complete Server Nginx Management for auth.uzswlu.uz completed successfully!"
           echo "🌐 auth.uzswlu.uz is now configured to proxy to port 3080"
