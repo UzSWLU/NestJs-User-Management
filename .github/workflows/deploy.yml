@@ -37,23 +37,32 @@ jobs:
 
           # Complete Server Nginx Management for auth.uzswlu.uz
           echo "🔧 Complete Server Nginx Management for auth.uzswlu.uz..."
-
+          
+          # Check if we can run sudo commands
+          if sudo -n true 2>/dev/null; then
+            echo "✅ Sudo access available"
+            SUDO_CMD="sudo"
+          else
+            echo "⚠️ Sudo access not available, running as root"
+            SUDO_CMD=""
+          fi
+          
           # 1. Create SSL certificate directory for auth.uzswlu.uz
           echo "📁 Creating SSL certificate directory..."
-          sudo mkdir -p /etc/nginx/ssl/auth.uzswlu.uz
-
+          $SUDO_CMD mkdir -p /etc/nginx/ssl/auth.uzswlu.uz
+          
           # 2. Copy existing SSL certificates
           echo "🔒 Copying SSL certificates..."
           if [ -f "/var/www/sertifikat/STAR25_uzswlu_uz.crt" ]; then
-            sudo cp /var/www/sertifikat/STAR25_uzswlu_uz.crt /etc/nginx/ssl/auth.uzswlu.uz/
-            sudo cp /var/www/sertifikat/STAR25_uzswlu_uz.key /etc/nginx/ssl/auth.uzswlu.uz/
-            sudo chmod 644 /etc/nginx/ssl/auth.uzswlu.uz/STAR25_uzswlu_uz.crt
-            sudo chmod 600 /etc/nginx/ssl/auth.uzswlu.uz/STAR25_uzswlu_uz.key
+            $SUDO_CMD cp /var/www/sertifikat/STAR25_uzswlu_uz.crt /etc/nginx/ssl/auth.uzswlu.uz/
+            $SUDO_CMD cp /var/www/sertifikat/STAR25_uzswlu_uz.key /etc/nginx/ssl/auth.uzswlu.uz/
+            $SUDO_CMD chmod 644 /etc/nginx/ssl/auth.uzswlu.uz/STAR25_uzswlu_uz.crt
+            $SUDO_CMD chmod 600 /etc/nginx/ssl/auth.uzswlu.uz/STAR25_uzswlu_uz.key
             echo "✅ SSL certificates copied successfully"
           else
             echo "⚠️ SSL certificates not found in /var/www/sertifikat/"
             echo "Creating self-signed certificates for testing..."
-            sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+            $SUDO_CMD openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
               -keyout /etc/nginx/ssl/auth.uzswlu.uz/STAR25_uzswlu_uz.key \
               -out /etc/nginx/ssl/auth.uzswlu.uz/STAR25_uzswlu_uz.crt \
               -subj "/C=UZ/ST=Tashkent/L=Tashkent/O=Auth API/OU=IT Department/CN=auth.uzswlu.uz"
@@ -61,104 +70,104 @@ jobs:
 
           # 3. Create comprehensive Nginx configuration for auth.uzswlu.uz
           echo "📝 Creating comprehensive Nginx configuration for auth.uzswlu.uz..."
-          sudo rm -f /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "# HTTP -> HTTPS redirect" | sudo tee /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "server {" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    listen 80;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    server_name auth.uzswlu.uz;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    " | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    # Let's Encrypt validation" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    location /.well-known/acme-challenge/ {" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "        root /var/www/html;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    }" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    " | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    # Redirect all other requests to HTTPS" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    location / {" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "        return 301 https://\$server_name\$request_uri;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    }" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "}" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "# HTTPS server" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "server {" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    listen 443 ssl http2;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    server_name auth.uzswlu.uz;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    " | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    # SSL Configuration" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    ssl_certificate /etc/nginx/ssl/auth.uzswlu.uz/STAR25_uzswlu_uz.crt;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    ssl_certificate_key /etc/nginx/ssl/auth.uzswlu.uz/STAR25_uzswlu_uz.key;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    ssl_protocols TLSv1.2 TLSv1.3;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384';" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    ssl_prefer_server_ciphers off;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    ssl_session_cache shared:SSL:10m;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    ssl_session_timeout 10m;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    ssl_session_tickets off;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    " | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    # Security Headers" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    add_header X-Frame-Options \"SAMEORIGIN\" always;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    add_header X-Content-Type-Options \"nosniff\" always;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    add_header X-XSS-Protection \"1; mode=block\" always;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    add_header Referrer-Policy \"no-referrer-when-downgrade\" always;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    " | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    # Client max body size" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    client_max_body_size 20M;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    " | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    # Proxy to Management Nginx (port 3080)" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    location / {" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "        proxy_pass http://127.0.0.1:3080;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "        proxy_set_header Host \$host;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "        proxy_set_header X-Real-IP \$remote_addr;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "        proxy_set_header X-Forwarded-Proto \$scheme;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "        proxy_redirect off;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "        " | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "        # Timeouts" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "        proxy_connect_timeout 30s;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "        proxy_send_timeout 30s;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "        proxy_read_timeout 30s;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "        " | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "        # Buffering" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "        proxy_buffering on;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "        proxy_buffer_size 4k;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "        proxy_buffers 8 4k;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "        proxy_busy_buffers_size 8k;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    }" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    " | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    # Health check endpoint" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    location /api/health {" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "        proxy_pass http://127.0.0.1:3080;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "        access_log off;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    }" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    " | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    # API documentation" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    location /api-docs {" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "        proxy_pass http://127.0.0.1:3080;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "        expires 1y;" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "        add_header Cache-Control \"public, immutable\";" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "    }" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-          echo "}" | sudo tee -a /etc/nginx/sites-available/auth.uzswlu.uz
-
+          $SUDO_CMD rm -f /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "# HTTP -> HTTPS redirect" | $SUDO_CMD tee /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "server {" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    listen 80;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    server_name auth.uzswlu.uz;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    " | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    # Let's Encrypt validation" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    location /.well-known/acme-challenge/ {" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "        root /var/www/html;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    }" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    " | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    # Redirect all other requests to HTTPS" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    location / {" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "        return 301 https://\$server_name\$request_uri;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    }" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "}" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "# HTTPS server" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "server {" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    listen 443 ssl http2;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    server_name auth.uzswlu.uz;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    " | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    # SSL Configuration" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    ssl_certificate /etc/nginx/ssl/auth.uzswlu.uz/STAR25_uzswlu_uz.crt;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    ssl_certificate_key /etc/nginx/ssl/auth.uzswlu.uz/STAR25_uzswlu_uz.key;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    ssl_protocols TLSv1.2 TLSv1.3;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384';" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    ssl_prefer_server_ciphers off;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    ssl_session_cache shared:SSL:10m;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    ssl_session_timeout 10m;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    ssl_session_tickets off;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    " | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    # Security Headers" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    add_header X-Frame-Options \"SAMEORIGIN\" always;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    add_header X-Content-Type-Options \"nosniff\" always;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    add_header X-XSS-Protection \"1; mode=block\" always;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    add_header Referrer-Policy \"no-referrer-when-downgrade\" always;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    " | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    # Client max body size" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    client_max_body_size 20M;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    " | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    # Proxy to Management Nginx (port 3080)" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    location / {" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "        proxy_pass http://127.0.0.1:3080;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "        proxy_set_header Host \$host;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "        proxy_set_header X-Real-IP \$remote_addr;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "        proxy_set_header X-Forwarded-Proto \$scheme;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "        proxy_redirect off;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "        " | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "        # Timeouts" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "        proxy_connect_timeout 30s;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "        proxy_send_timeout 30s;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "        proxy_read_timeout 30s;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "        " | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "        # Buffering" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "        proxy_buffering on;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "        proxy_buffer_size 4k;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "        proxy_buffers 8 4k;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "        proxy_busy_buffers_size 8k;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    }" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    " | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    # Health check endpoint" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    location /api/health {" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "        proxy_pass http://127.0.0.1:3080;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "        access_log off;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    }" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    " | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    # API documentation" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    location /api-docs {" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "        proxy_pass http://127.0.0.1:3080;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "        expires 1y;" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "        add_header Cache-Control \"public, immutable\";" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "    }" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          echo "}" | $SUDO_CMD tee -a /etc/nginx/sites-available/auth.uzswlu.uz
+          
           # 4. Enable auth.uzswlu.uz site
           echo "✅ Enabling auth.uzswlu.uz site..."
-          sudo ln -sf /etc/nginx/sites-available/auth.uzswlu.uz /etc/nginx/sites-enabled/
-
+          $SUDO_CMD ln -sf /etc/nginx/sites-available/auth.uzswlu.uz /etc/nginx/sites-enabled/
+          
           # 5. Test Nginx configuration
           echo "🧪 Testing Nginx configuration..."
-          if sudo nginx -t; then
+          if $SUDO_CMD nginx -t; then
             echo "✅ Nginx configuration is valid"
           else
             echo "❌ Nginx configuration has errors"
-            sudo nginx -t
+            $SUDO_CMD nginx -t
             exit 1
           fi
-
+          
           # 6. Reload Nginx
           echo "🔄 Reloading Nginx..."
-          sudo nginx -s reload
-
+          $SUDO_CMD nginx -s reload
+          
           # 7. Verify Nginx is running
           echo "🔍 Verifying Nginx status..."
-          sudo systemctl status nginx --no-pager -l
-
+          $SUDO_CMD systemctl status nginx --no-pager -l
+          
           echo "✅ Complete Server Nginx Management for auth.uzswlu.uz completed successfully!"
           echo "🌐 auth.uzswlu.uz is now configured to proxy to port 3080"
