@@ -41,36 +41,36 @@ jobs:
         timeout-minutes: 15
         run: |
           echo "🚀 Starting deployment..."
-          
+
           # Check if directory exists
           if [ ! -d "/var/www/auth-api" ]; then
             echo "❌ Directory /var/www/auth-api not found"
             exit 1
           fi
-          
+
           cd /var/www/auth-api
           echo "📁 Changed to /var/www/auth-api"
-          
+
           echo "📥 Pulling latest code..."
           git fetch origin main
           git reset --hard origin/main
-          
+
           echo "✅ Code updated successfully!"
-          
+
           # Stop existing containers
           echo "🛑 Stopping existing containers..."
           docker-compose -f docker-compose.prod.yml down || echo "No containers to stop"
-          
+
           # Build and start containers locally
           echo "🔨 Building and starting containers..."
           docker-compose -f docker-compose.prod.yml up -d --build
-          
+
           echo "✅ Containers started successfully!"
 
           # Wait for containers to be ready
           echo "⏳ Waiting for containers to be ready..."
           sleep 15
-          
+
           # Check container status
           echo "🔍 Checking container status..."
           docker-compose -f docker-compose.prod.yml ps
