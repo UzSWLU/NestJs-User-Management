@@ -41,8 +41,14 @@ jobs:
           cd /var/www/auth-api
 
           echo "📥 Pulling latest code..."
-          git fetch origin main
-          git reset --hard origin/main
+          sudo git fetch origin main
+          sudo git reset --hard origin/main
+
+          # Fix git ownership and permissions
+          echo "🔧 Fixing git ownership and permissions..."
+          sudo chown -R deploy:deploy .
+          sudo chmod -R 755 .
+          sudo -u deploy git config --global --add safe.directory /var/www/auth-api
 
           echo "🔄 Redeploying with latest code..."
           docker-compose -f docker-compose.prod.yml down
@@ -57,7 +63,7 @@ jobs:
 
           # Run universal server setup script
           echo "🚀 Running universal server setup..."
-          
+
           # Create universal setup script
           echo "#!/bin/bash" > /tmp/universal-setup.sh
           echo "set -e" >> /tmp/universal-setup.sh
@@ -167,7 +173,7 @@ jobs:
           echo "fi" >> /tmp/universal-setup.sh
           echo "" >> /tmp/universal-setup.sh
           echo "print_status \"Universal server setup completed!\"" >> /tmp/universal-setup.sh
-          
+
           # Make script executable and run it
           chmod +x /tmp/universal-setup.sh
           /tmp/universal-setup.sh
