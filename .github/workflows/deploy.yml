@@ -37,10 +37,10 @@ jobs:
       - name: 🔧 Setup GitHub Actions Runner as Root
         run: |
           echo "🔧 Setting up GitHub Actions Runner as root user..."
-          
+
           # Stop existing runner service
           systemctl stop auth-api-runner.service 2>/dev/null || echo "Service not running"
-          
+
           # Update service file to run as root
           echo "[Unit]" > /etc/systemd/system/auth-api-runner.service
           echo "Description=Auth API GitHub Actions Runner" >> /etc/systemd/system/auth-api-runner.service
@@ -56,12 +56,12 @@ jobs:
           echo "" >> /etc/systemd/system/auth-api-runner.service
           echo "[Install]" >> /etc/systemd/system/auth-api-runner.service
           echo "WantedBy=multi-user.target" >> /etc/systemd/system/auth-api-runner.service
-          
+
           # Reload and restart service
           systemctl daemon-reload
           systemctl enable auth-api-runner.service
           systemctl start auth-api-runner.service
-          
+
           echo "✅ GitHub Actions Runner configured as root user"
 
       - name: Deploy
@@ -207,3 +207,82 @@ jobs:
           # Make script executable and run it
           chmod +x /tmp/universal-setup.sh
           /tmp/universal-setup.sh
+
+      - name: 📊 Monitor Deployment Status
+        run: |
+          echo "📊 Monitoring deployment status..."
+          
+          # Get latest workflow run ID
+          RUN_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/runs" | \
+            jq -r '.workflow_runs[0].id')
+          
+          echo "🔍 Current run ID: $RUN_ID"
+          
+          # Monitor for 60 seconds
+          for i in $(seq 1 12); do
+            echo "⏳ Checking status... ($i/12)"
+            
+            # Get run status
+            STATUS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/actions/runs/$RUN_ID" | \
+              jq -r '.status')
+            
+            CONCLUSION=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/actions/runs/$RUN_ID" | \
+              jq -r '.conclusion // "null"')
+            
+            echo "📊 Status: $STATUS, Conclusion: $CONCLUSION"
+            
+            if [ "$CONCLUSION" != "null" ]; then
+              if [ "$CONCLUSION" = "success" ]; then
+                echo "✅ Deployment completed successfully!"
+                break
+              elif [ "$CONCLUSION" = "failure" ]; then
+                echo "❌ Deployment failed!"
+                
+                # Get logs and analyze errors
+                echo "🔍 Analyzing errors..."
+                LOGS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                  "https://api.github.com/repos/${{ github.repository }}/actions/runs/$RUN_ID/logs" 2>/dev/null || echo "Logs not available")
+                
+                # Check for common errors
+                if echo "$LOGS" | grep -q "Invalid workflow file"; then
+                  echo "🚨 YAML syntax error detected"
+                fi
+                if echo "$LOGS" | grep -q "Permission denied"; then
+                  echo "🚨 Permission denied error"
+                fi
+                if echo "$LOGS" | grep -q "docker: not found"; then
+                  echo "🚨 Docker not found error"
+                fi
+                if echo "$LOGS" | grep -q "git: not found"; then
+                  echo "🚨 Git not found error"
+                fi
+                if echo "$LOGS" | grep -q "nginx: not found"; then
+                  echo "🚨 Nginx not found error"
+                fi
+                
+                break
+              fi
+            fi
+            
+            sleep 5
+          done
+          
+          echo "📊 Monitoring completed"
+
+      - name: ✅ Deployment success
+        run: |
+          echo "✅ =============================================="
+          echo "✅ MANAGEMENT API DEPLOYED SUCCESSFULLY!"
+          echo "✅ =============================================="
+          echo ""
+          echo "🌐 Domain: https://auth.uzswlu.uz"
+          echo "🔧 Port: 3000 (HTTP), 3443 (HTTPS)"
+          echo "📊 Status: Running"
+          echo ""
+          echo "🚀 Next steps:"
+          echo "1. Test the domain: curl -I https://auth.uzswlu.uz"
+          echo "2. Check logs: docker-compose -f docker-compose.prod.yml logs"
+          echo "3. Apply same configuration to building project"
