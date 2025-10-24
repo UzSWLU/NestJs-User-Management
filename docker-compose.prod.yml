@@ -1,7 +1,6 @@
 services:
   # NestJS API
   api:
-    image: ghcr.io/a-d-sh/nestjs-user-management:latest
     build:
       context: .
       dockerfile: Dockerfile.prod
