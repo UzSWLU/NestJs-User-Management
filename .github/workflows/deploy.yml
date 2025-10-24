@@ -7,6 +7,7 @@ on:
     paths-ignore:
       - '**.md'
       - 'docs/**'
+  workflow_dispatch: # Manual trigger for testing
 
 env:
   REGISTRY: ghcr.io
@@ -75,57 +76,75 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: 🚨 Error Handler - Build
+        if: failure()
+        run: |
+          echo "❌ Docker build failed!"
+          echo "🔍 Checking Docker logs..."
+          docker system df
+          docker images
+          echo "📊 Build error details logged"
+
   deploy:
     name: 🚀 Deploy to Production
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 15
     needs: [validate, build-and-push]
+    if: always() && (needs.validate.result == 'success' && needs.build-and-push.result == 'success')
     steps:
       - name: 🚀 Deploy Application
         timeout-minutes: 15
         run: |
           echo "🚀 Starting deployment..."
-
+          
           # Check if directory exists
           if [ ! -d "/var/www/auth-api" ]; then
             echo "❌ Directory /var/www/auth-api not found"
             exit 1
           fi
-
+          
           cd /var/www/auth-api
           echo "📁 Changed to /var/www/auth-api"
-
+          
           echo "📥 Pulling latest code..."
           git fetch origin main
           git reset --hard origin/main
-
+          
           echo "✅ Code updated successfully!"
-
+          
           # Login to GitHub Container Registry
           echo "🔐 Logging into GitHub Container Registry..."
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
+          
           # Pull latest image from GHCR
           echo "🐳 Pulling latest image from GHCR..."
           docker pull ghcr.io/${{ github.repository }}:latest || echo "⚠️ Using local image"
-
+          
           # Stop existing containers
           echo "🛑 Stopping existing containers..."
           docker-compose -f docker-compose.prod.yml down || echo "No containers to stop"
-
+          
           # Build and start containers using GHCR image
           echo "🔨 Building and starting containers..."
           docker-compose -f docker-compose.prod.yml up -d --build
-
+          
           echo "✅ Containers started successfully!"
 
           # Wait for containers to be ready
           echo "⏳ Waiting for containers to be ready..."
           sleep 15
-
+          
           # Check container status
           echo "🔍 Checking container status..."
           docker-compose -f docker-compose.prod.yml ps
+
+      - name: 🚨 Error Handler - Deploy
+        if: failure()
+        run: |
+          echo "❌ Deployment failed!"
+          echo "🔍 Checking container logs..."
+          docker-compose -f docker-compose.prod.yml logs --tail=50 || echo "No logs available"
+          echo "📊 Deployment error details logged"
 
       - name: 📊 Monitor Deployment Status
         run: |
@@ -136,12 +155,14 @@ jobs:
             echo "✅ Management API container is running"
           else
             echo "❌ Management API container is not running"
+            exit 1
           fi
 
           if docker ps | grep -q "management-nginx-prod"; then
             echo "✅ Management Nginx container is running"
           else
             echo "❌ Management Nginx container is not running"
+            exit 1
           fi
 
           # Check if ports are accessible
@@ -149,6 +170,7 @@ jobs:
             echo "✅ Management API is accessible on port 3000"
           else
             echo "❌ Management API is not accessible on port 3000"
+            exit 1
           fi
 
           echo "📊 Monitoring completed"
@@ -168,3 +190,26 @@ jobs:
           echo "1. Test the domain: curl -I https://auth.uzswlu.uz"
           echo "2. Check logs: docker-compose -f docker-compose.prod.yml logs"
           echo "3. View image: https://github.com/${{ github.repository }}/pkgs/container/nestjs-user-management"
+
+  notify:
+    name: 📢 Notify Status
+    runs-on: [self-hosted, Linux, X64]
+    needs: [validate, build-and-push, deploy]
+    if: always()
+    steps:
+      - name: 📢 Workflow Status Notification
+        run: |
+          echo "📢 =============================================="
+          echo "📢 WORKFLOW STATUS NOTIFICATION"
+          echo "📢 =============================================="
+          echo ""
+          echo "🔍 Validate: ${{ needs.validate.result }}"
+          echo "🐳 Build & Push: ${{ needs.build-and-push.result }}"
+          echo "🚀 Deploy: ${{ needs.deploy.result }}"
+          echo ""
+          if [ "${{ needs.deploy.result }}" = "success" ]; then
+            echo "✅ All jobs completed successfully!"
+          else
+            echo "❌ Some jobs failed. Check logs for details."
+          fi
+          echo "📢 =============================================="
