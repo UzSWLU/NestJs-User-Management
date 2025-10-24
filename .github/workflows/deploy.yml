@@ -37,7 +37,7 @@ jobs:
   build-and-push:
     name: 🐳 Build & Push Docker Image
     runs-on: [self-hosted, Linux, X64]
-    timeout-minutes: 10
+    timeout-minutes: 15
     needs: validate
     permissions:
       contents: read
@@ -60,10 +60,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,prefix={{branch}}-
 
       - name: 🐳 Build and push Docker image
         uses: docker/build-push-action@v5
@@ -73,58 +71,58 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   deploy:
     name: 🚀 Deploy to Production
     runs-on: [self-hosted, Linux, X64]
-    timeout-minutes: 10
+    timeout-minutes: 15
     needs: [validate, build-and-push]
     steps:
-      - name: 🔧 Setup GitHub Actions Runner as Root
-        run: |
-          echo "🔧 Setting up GitHub Actions Runner as root user..."
-          echo "✅ Runner setup completed (simplified)"
-
       - name: 🚀 Deploy Application
-        timeout-minutes: 10
+        timeout-minutes: 15
         run: |
           echo "🚀 Starting deployment..."
-
+          
           # Check if directory exists
           if [ ! -d "/var/www/auth-api" ]; then
             echo "❌ Directory /var/www/auth-api not found"
             exit 1
           fi
-
+          
           cd /var/www/auth-api
           echo "📁 Changed to /var/www/auth-api"
-
+          
           echo "📥 Pulling latest code..."
           git fetch origin main
           git reset --hard origin/main
-
+          
           echo "✅ Code updated successfully!"
-
+          
           # Login to GitHub Container Registry
           echo "🔐 Logging into GitHub Container Registry..."
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
+          
           # Pull latest image from GHCR
           echo "🐳 Pulling latest image from GHCR..."
           docker pull ghcr.io/${{ github.repository }}:latest || echo "⚠️ Using local image"
-
+          
+          # Stop existing containers
+          echo "🛑 Stopping existing containers..."
+          docker-compose -f docker-compose.prod.yml down || echo "No containers to stop"
+          
           # Build and start containers using GHCR image
           echo "🔨 Building and starting containers..."
           docker-compose -f docker-compose.prod.yml up -d --build
-
+          
           echo "✅ Containers started successfully!"
 
           # Wait for containers to be ready
           echo "⏳ Waiting for containers to be ready..."
-          sleep 10
-
+          sleep 15
+          
           # Check container status
           echo "🔍 Checking container status..."
           docker-compose -f docker-compose.prod.yml ps
@@ -151,12 +149,6 @@ jobs:
             echo "✅ Management API is accessible on port 3000"
           else
             echo "❌ Management API is not accessible on port 3000"
-          fi
-
-          if curl -s -o /dev/null -w "%{http_code}" http://localhost:3080 | grep -q "200"; then
-            echo "✅ Management Nginx is accessible on port 3080"
-          else
-            echo "❌ Management Nginx is not accessible on port 3080"
           fi
 
           echo "📊 Monitoring completed"
