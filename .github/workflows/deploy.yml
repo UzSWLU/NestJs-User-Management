@@ -64,9 +64,9 @@ server {
     listen 443 ssl http2;
     server_name auth.uzswlu.uz;
 
-    # SSL Configuration
-    ssl_certificate /etc/nginx/ssl/auth.uzswlu.uz/STAR25_uzswlu_uz.crt;
-    ssl_certificate_key /etc/nginx/ssl/auth.uzswlu.uz/STAR25_uzswlu_uz.key;
+    # SSL Configuration (using existing certificates from /var/www/sertifikat)
+    ssl_certificate /var/www/sertifikat/STAR25_uzswlu_uz.crt;
+    ssl_certificate_key /var/www/sertifikat/STAR25_uzswlu_uz.key;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers '\''ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384'\'';
     ssl_prefer_server_ciphers off;
