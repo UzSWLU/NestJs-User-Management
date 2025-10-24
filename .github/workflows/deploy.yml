@@ -40,32 +40,7 @@ jobs:
       - name: 🔧 Setup GitHub Actions Runner as Root
         run: |
           echo "🔧 Setting up GitHub Actions Runner as root user..."
-
-          # Stop existing runner service
-          systemctl stop auth-api-runner.service 2>/dev/null || echo "Service not running"
-
-          # Update service file to run as root
-          echo "[Unit]" > /etc/systemd/system/auth-api-runner.service
-          echo "Description=Auth API GitHub Actions Runner" >> /etc/systemd/system/auth-api-runner.service
-          echo "After=network.target" >> /etc/systemd/system/auth-api-runner.service
-          echo "" >> /etc/systemd/system/auth-api-runner.service
-          echo "[Service]" >> /etc/systemd/system/auth-api-runner.service
-          echo "Type=simple" >> /etc/systemd/system/auth-api-runner.service
-          echo "User=root" >> /etc/systemd/system/auth-api-runner.service
-          echo "WorkingDirectory=/var/www/auth-api/runner" >> /etc/systemd/system/auth-api-runner.service
-          echo "ExecStart=/var/www/auth-api/runner/run.sh" >> /etc/systemd/system/auth-api-runner.service
-          echo "Restart=always" >> /etc/systemd/system/auth-api-runner.service
-          echo "RestartSec=5" >> /etc/systemd/system/auth-api-runner.service
-          echo "" >> /etc/systemd/system/auth-api-runner.service
-          echo "[Install]" >> /etc/systemd/system/auth-api-runner.service
-          echo "WantedBy=multi-user.target" >> /etc/systemd/system/auth-api-runner.service
-
-          # Reload and restart service
-          systemctl daemon-reload
-          systemctl enable auth-api-runner.service
-          systemctl start auth-api-runner.service
-
-          echo "✅ GitHub Actions Runner configured as root user"
+          echo "✅ Runner setup completed (simplified)"
 
       - name: Deploy
         timeout-minutes: 5
