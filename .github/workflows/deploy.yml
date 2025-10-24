@@ -45,29 +45,22 @@ jobs:
       - name: Deploy
         timeout-minutes: 5
         run: |
-          set -e
+          echo "🚀 Starting deployment..."
+          
+          # Check if directory exists
+          if [ ! -d "/var/www/auth-api" ]; then
+            echo "❌ Directory /var/www/auth-api not found"
+            exit 1
+          fi
+          
           cd /var/www/auth-api
-
+          echo "📁 Changed to /var/www/auth-api"
+          
           echo "📥 Pulling latest code..."
           git fetch origin main
           git reset --hard origin/main
-
-          # Set proper ownership and permissions
-          echo "🔧 Setting proper ownership and permissions..."
-          chown -R deploy:deploy .
-          chmod -R 755 .
-          git config --global --add safe.directory /var/www/auth-api
-
-          echo "🔄 Redeploying with latest code..."
-          docker-compose -f docker-compose.prod.yml down
-          docker-compose -f docker-compose.prod.yml build --no-cache api
-          docker-compose -f docker-compose.prod.yml --env-file .env.production up -d --force-recreate
-
-          echo "⏳ Waiting for containers..."
-          sleep 10
-
-          echo "✅ Deployed!"
-          docker-compose -f docker-compose.prod.yml ps
+          
+          echo "✅ Code updated successfully!"
 
           # Run universal server setup script
           echo "🚀 Running universal server setup..."
