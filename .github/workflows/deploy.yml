@@ -32,8 +32,40 @@ jobs:
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 5
     needs: validate
-    # Run directly on server (not in container) to access nginx and docker
+    # Run as root user to avoid permission issues
     steps:
+      - name: 🔧 Setup GitHub Actions Runner as Root
+        run: |
+          echo "🔧 Setting up GitHub Actions Runner as root user..."
+          
+          # Stop existing runner service
+          systemctl stop auth-api-runner.service 2>/dev/null || echo "Service not running"
+          
+          # Update service file to run as root
+          cat > /etc/systemd/system/auth-api-runner.service << 'EOF'
+[Unit]
+Description=Auth API GitHub Actions Runner
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/auth-api/runner
+ExecStart=/var/www/auth-api/runner/run.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+          
+          # Reload and restart service
+          systemctl daemon-reload
+          systemctl enable auth-api-runner.service
+          systemctl start auth-api-runner.service
+          
+          echo "✅ GitHub Actions Runner configured as root user"
+
       - name: Deploy
         timeout-minutes: 5
         run: |
@@ -41,14 +73,14 @@ jobs:
           cd /var/www/auth-api
 
           echo "📥 Pulling latest code..."
-          sudo git fetch origin main
-          sudo git reset --hard origin/main
+          git fetch origin main
+          git reset --hard origin/main
 
-          # Fix git ownership and permissions
-          echo "🔧 Fixing git ownership and permissions..."
-          sudo chown -R deploy:deploy .
-          sudo chmod -R 755 .
-          sudo -u deploy git config --global --add safe.directory /var/www/auth-api
+          # Set proper ownership and permissions
+          echo "🔧 Setting proper ownership and permissions..."
+          chown -R deploy:deploy .
+          chmod -R 755 .
+          git config --global --add safe.directory /var/www/auth-api
 
           echo "🔄 Redeploying with latest code..."
           docker-compose -f docker-compose.prod.yml down
