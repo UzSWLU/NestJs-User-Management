@@ -22,6 +22,8 @@ import { UserProfile } from './database/entities/oauth/user-profile.entity';
 import { UserAutoRoleRule } from './database/entities/oauth/user-auto-role-rule.entity';
 import { UserMergeHistory } from './database/entities/oauth/user-merge-history.entity';
 import { UserProfilePreference } from './database/entities/oauth/user-profile-preference.entity';
+import { HemisStudent } from './database/entities/hemis/student.entity';
+import { HemisEmployee } from './database/entities/hemis/employee.entity';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { RolesModule } from './modules/roles/roles.module';
@@ -32,6 +34,8 @@ import { UserMergeModule } from './modules/user-merge/user-merge.module';
 import { AutoRoleRulesModule } from './modules/auto-role-rules/auto-role-rules.module';
 import { CompaniesModule } from './modules/companies/companies.module';
 import { UserProfilesModule } from './modules/user-profiles/user-profiles.module';
+import { HemisModule } from './modules/hemis/hemis.module';
+import { ScheduleModule } from '@nestjs/schedule';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
@@ -39,6 +43,7 @@ import { DatabaseModule } from './database/database.module';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
     DatabaseModule,
     TypeOrmModule.forRootAsync({
@@ -71,6 +76,8 @@ import { DatabaseModule } from './database/database.module';
           UserAutoRoleRule,
           UserMergeHistory,
           UserProfilePreference,
+          HemisStudent,
+          HemisEmployee,
         ],
         synchronize: true,
         logging: true,
@@ -86,6 +93,7 @@ import { DatabaseModule } from './database/database.module';
     UserMergeModule,
     AutoRoleRulesModule,
     CompaniesModule,
+    HemisModule,
   ],
   controllers: [AppController],
   providers: [
