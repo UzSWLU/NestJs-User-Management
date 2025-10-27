@@ -60,7 +60,7 @@ export async function seedAutoRoleRules(dataSource: DataSource) {
       role: studentRole,
       condition_field: 'student_id',
       condition_operator: 'contains',
-      condition_value: '', // Any user with student_id field
+      condition_value: 'student',
       is_active: true,
     },
   ]);

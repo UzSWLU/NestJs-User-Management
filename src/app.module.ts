@@ -22,8 +22,8 @@ import { UserProfile } from './database/entities/oauth/user-profile.entity';
 import { UserAutoRoleRule } from './database/entities/oauth/user-auto-role-rule.entity';
 import { UserMergeHistory } from './database/entities/oauth/user-merge-history.entity';
 import { UserProfilePreference } from './database/entities/oauth/user-profile-preference.entity';
-import { HemisStudent } from './database/entities/hemis/student.entity';
-import { HemisEmployee } from './database/entities/hemis/employee.entity';
+// HEMIS Entities
+import * as HemisEntities from './database/entities/hemis/index';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { RolesModule } from './modules/roles/roles.module';
@@ -76,8 +76,8 @@ import { DatabaseModule } from './database/database.module';
           UserAutoRoleRule,
           UserMergeHistory,
           UserProfilePreference,
-          HemisStudent,
-          HemisEmployee,
+          // HEMIS Entities
+          ...Object.values(HemisEntities),
         ],
         synchronize: true,
         logging: true,

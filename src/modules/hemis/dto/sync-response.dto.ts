@@ -1,41 +1,38 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class SyncResponseDto {
-  @ApiProperty({ example: true, description: 'Sync success status' })
-  success: boolean;
+export class SyncProgressDto {
+  @ApiProperty({ example: 'running', enum: ['idle', 'running', 'completed', 'error', 'cancelled'] })
+  status: string;
 
-  @ApiProperty({ 
-    example: '✅ Synced 23238 students in 456.78s. ❌ Errors: 5. 🗑️ Deleted: 0',
-    description: 'Human-readable sync result message'
-  })
-  message: string;
+  @ApiProperty({ example: 1697123456789 })
+  startTime: number;
 
-  @ApiProperty({ 
-    required: false,
-    description: 'Synced entity data (for single sync)'
-  })
-  data?: any;
+  @ApiProperty({ example: 1697123456789, required: false })
+  endTime?: number;
 
-  @ApiProperty({ 
-    example: 23238,
-    required: false,
-    description: 'Total number of records synced'
-  })
-  totalSynced?: number;
+  @ApiProperty({ example: 2345 })
+  totalRecords: number;
 
-  @ApiProperty({ 
-    example: [],
-    required: false,
-    isArray: true,
-    description: 'List of errors encountered during sync'
-  })
-  errors?: string[];
+  @ApiProperty({ example: 500 })
+  processedRecords: number;
 
-  @ApiProperty({ 
-    example: 0,
-    required: false,
-    description: 'Number of obsolete records deleted'
-  })
-  deleted?: number;
+  @ApiProperty({ example: [], type: [String] })
+  errors: string[];
+
+  @ApiProperty({ example: 5, required: false })
+  currentPage?: number;
+
+  @ApiProperty({ example: 12, required: false })
+  totalPages?: number;
+
+  @ApiProperty({ example: 'Processing page 5 of 12', required: false })
+  message?: string;
 }
 
+export class SyncResponseDto {
+  @ApiProperty({ example: true })
+  success: boolean;
+
+  @ApiProperty({ example: 'Student sync completed successfully' })
+  message: string;
+}

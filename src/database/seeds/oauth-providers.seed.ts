@@ -35,6 +35,7 @@ export async function seedOAuthProviders(dataSource: DataSource) {
       url_resource_owner_details:
         'https://hemis.uzswlu.uz/oauth/api/user?fields=id,uuid,employee-list?type=all,type,name,login,image_full,email,university_id,phone,employee_list,departments',
       front_redirect: primaryFrontendUrl,
+      default_role_id: 5,
       is_active: true,
     },
     {
@@ -42,6 +43,7 @@ export async function seedOAuthProviders(dataSource: DataSource) {
       auth_type: 'api',
       url_login: 'https://student.uzswlu.uz/rest/v1/auth/login',
       url_resource_owner_details: 'https://student.uzswlu.uz/rest/v1/account/me',
+      default_role_id: 6,
       is_active: true,
     },
     {
