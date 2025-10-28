@@ -1,10 +1,10 @@
 import { Controller, Post, Get, Body, Logger, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { HemisSyncService } from '../services/hemis-sync.service';
-import { HemisProgressService } from '../services/hemis-progress.service';
-import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
-import { Roles } from '../../../common/decorators/roles.decorator';
-import { SyncProgressDto, SyncResponseDto } from '../dto/sync-response.dto';
+import { HemisSyncService } from './services/hemis-sync.service';
+import { HemisProgressService } from './services/hemis-progress.service';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { SyncProgressDto, SyncResponseDto } from './dto/sync-response.dto';
 
 @ApiTags('HEMIS Sync')
 @Controller('hemis')
@@ -108,5 +108,42 @@ export class HemisController {
       success: true,
       message: 'Employee sync cancellation requested',
     };
+  }
+
+  @Post('sync/semesters')
+  @Roles('admin', 'creator')
+  @ApiOperation({ 
+    summary: 'Sync all semesters from HEMIS',
+    description: 'Fetches all semesters from HEMIS API and syncs them to local database. Process is paginated (200 records per page) with retry logic and error handling. Uses hemisId as unique identifier to avoid code conflicts.'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Successfully synced semesters',
+    type: SyncResponseDto
+  })
+  @ApiResponse({ 
+    status: 401, 
+    description: 'Unauthorized - Invalid or missing JWT token' 
+  })
+  @ApiResponse({ 
+    status: 403, 
+    description: 'Forbidden - Admin or Creator role required' 
+  })
+  @ApiResponse({ 
+    status: 500, 
+    description: 'Internal server error during sync' 
+  })
+  async syncSemesters() {
+    try {
+      this.logger.log('Starting semester sync...');
+      await this.hemisSyncService.syncSemesters();
+      return {
+        success: true,
+        message: 'Semester sync completed successfully',
+      };
+    } catch (error) {
+      this.logger.error(`Semester sync failed: ${error.message}`);
+      throw error;
+    }
   }
 }

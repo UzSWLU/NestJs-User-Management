@@ -1,8 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { HemisApiService } from './hemis-api.service';
 import { HemisProgressService } from './hemis-progress.service';
+import { OAuthAccountSyncService } from './oauth-account-sync.service';
 import { HemisSyncLog } from '../../../database/entities/hemis/sync-log.entity';
 
 // Main entities
@@ -110,6 +111,7 @@ export class HemisSyncService {
     private readonly departmentLocalityTypeRepository: Repository<HemisDepartmentLocalityType>,
     @InjectRepository(HemisEducationLang)
     private readonly educationLangRepository: Repository<HemisEducationLang>,
+    private readonly oauthAccountSyncService: OAuthAccountSyncService,
   ) {}
 
   /**
@@ -141,11 +143,13 @@ export class HemisSyncService {
         totalPages,
       });
 
-      // Track synced student IDs
+      // Track synced student IDs (hemisId)
       const syncedStudentIds = new Set<number>();
+      // Track synced student DB IDs (for OAuth account sync)
+      const syncedStudentDbIds = new Set<number>();
 
       // Process first page
-      await this.processStudentsBatch(firstPageResponse.data.items, 1, syncedStudentIds);
+      await this.processStudentsBatch(firstPageResponse.data.items, 1, syncedStudentIds, syncedStudentDbIds);
 
       // Process remaining pages with retry logic
       for (let page = 2; page <= totalPages; page++) {
@@ -165,7 +169,7 @@ export class HemisSyncService {
           try {
             const response = await this.hemisApiService.fetchStudents(page, limit);
             if (response.success && response.data) {
-              await this.processStudentsBatch(response.data.items, page, syncedStudentIds);
+              await this.processStudentsBatch(response.data.items, page, syncedStudentIds, syncedStudentDbIds);
               this.progressService.updateStudentProgress({
                 currentPage: page,
                 processedRecords: syncedStudentIds.size,
@@ -193,6 +197,23 @@ export class HemisSyncService {
       // Delete stale students
       await this.deleteStaleStudents(syncedStudentIds);
 
+      // Sync OAuth accounts for synced students
+      if (syncedStudentDbIds.size > 0) {
+        this.logger.log(`🔄 Syncing OAuth accounts for ${syncedStudentDbIds.size} students...`);
+        try {
+          await this.oauthAccountSyncService.batchSyncStudentOAuthAccounts(
+            Array.from(syncedStudentDbIds),
+            100,
+          );
+        } catch (error: any) {
+          this.logger.error(`⚠️  OAuth account sync failed (non-critical): ${error.message}`);
+          this.logger.error(`⚠️  Error stack: ${error.stack}`);
+          // Don't fail the main sync
+        }
+      } else {
+        this.logger.warn('⚠️  No student DB IDs to sync OAuth accounts');
+      }
+
       const endTime = Date.now();
       this.progressService.updateStudentProgress({
         status: 'completed',
@@ -217,15 +238,23 @@ export class HemisSyncService {
   /**
    * Process a batch of students with error handling
    */
-  private async processStudentsBatch(items: any[], page: number, syncedStudentIds: Set<number>): Promise<void> {
+  private async processStudentsBatch(
+    items: any[],
+    page: number,
+    syncedStudentIds: Set<number>,
+    syncedStudentDbIds: Set<number>,
+  ): Promise<void> {
     for (const item of items) {
       let retries = 0;
       let success = false;
 
       while (retries <= this.MAX_RETRIES && !success) {
         try {
-          await this.syncStudent(item);
+          const studentDbId = await this.syncStudent(item);
           syncedStudentIds.add(item.id);
+          if (studentDbId) {
+            syncedStudentDbIds.add(studentDbId);
+          }
           success = true;
         } catch (error) {
           retries++;
@@ -248,8 +277,9 @@ export class HemisSyncService {
 
   /**
    * Sync a single student with all relationships
+   * @returns Database ID of the student (created or updated)
    */
-  private async syncStudent(item: any): Promise<void> {
+  private async syncStudent(item: any): Promise<number | null> {
     const student = await this.studentRepository.findOne({
       where: { hemisId: item.id },
     });
@@ -340,8 +370,10 @@ export class HemisSyncService {
 
     if (student) {
       await this.studentRepository.update(student.id, studentData);
+      return student.id;
     } else {
-      await this.studentRepository.save(studentData);
+      const savedStudent = await this.studentRepository.save(studentData);
+      return savedStudent.id;
     }
   }
 
@@ -374,8 +406,10 @@ export class HemisSyncService {
       });
 
       const syncedEmployeeIds = new Set<number>();
+      // Track synced employee DB IDs (for OAuth account sync)
+      const syncedEmployeeDbIds = new Set<number>();
 
-      await this.processEmployeesBatch(firstPageResponse.data.items, 1, syncedEmployeeIds);
+      await this.processEmployeesBatch(firstPageResponse.data.items, 1, syncedEmployeeIds, syncedEmployeeDbIds);
 
       for (let page = 2; page <= totalPages; page++) {
         if (this.progressService.isEmployeeSyncCancelled()) {
@@ -394,7 +428,7 @@ export class HemisSyncService {
           try {
             const response = await this.hemisApiService.fetchEmployees('all', page, limit);
             if (response.success && response.data) {
-              await this.processEmployeesBatch(response.data.items, page, syncedEmployeeIds);
+              await this.processEmployeesBatch(response.data.items, page, syncedEmployeeIds, syncedEmployeeDbIds);
               this.progressService.updateEmployeeProgress({
                 currentPage: page,
                 processedRecords: syncedEmployeeIds.size,
@@ -420,6 +454,25 @@ export class HemisSyncService {
 
       await this.deleteStaleEmployees(syncedEmployeeIds);
 
+      this.logger.log(`📊 Employee sync summary: ${syncedEmployeeIds.size} HEMIS IDs synced, ${syncedEmployeeDbIds.size} DB IDs collected`);
+
+      // Sync OAuth accounts for synced employees
+      if (syncedEmployeeDbIds.size > 0) {
+        this.logger.log(`🔄 Syncing OAuth accounts for ${syncedEmployeeDbIds.size} employees...`);
+        try {
+          await this.oauthAccountSyncService.batchSyncEmployeeOAuthAccounts(
+            Array.from(syncedEmployeeDbIds),
+            100,
+          );
+        } catch (error: any) {
+          this.logger.error(`⚠️  OAuth account sync failed (non-critical): ${error.message}`);
+          this.logger.error(`⚠️  Error stack: ${error.stack}`);
+          // Don't fail the main sync
+        }
+      } else {
+        this.logger.warn('⚠️  No employee DB IDs to sync OAuth accounts');
+      }
+
       const endTime = Date.now();
       this.progressService.updateEmployeeProgress({
         status: 'completed',
@@ -444,15 +497,25 @@ export class HemisSyncService {
   /**
    * Process a batch of employees with error handling
    */
-  private async processEmployeesBatch(items: any[], page: number, syncedEmployeeIds: Set<number>): Promise<void> {
+  private async processEmployeesBatch(
+    items: any[],
+    page: number,
+    syncedEmployeeIds: Set<number>,
+    syncedEmployeeDbIds: Set<number>,
+  ): Promise<void> {
     for (const item of items) {
       let retries = 0;
       let success = false;
 
       while (retries <= this.MAX_RETRIES && !success) {
         try {
-          await this.syncEmployee(item);
+          const employeeDbId = await this.syncEmployee(item);
           syncedEmployeeIds.add(item.id);
+          if (employeeDbId) {
+            syncedEmployeeDbIds.add(employeeDbId);
+          } else {
+            this.logger.warn(`⚠️  Employee ${item.id} (hemisId: ${item.id}) returned null DB ID`);
+          }
           success = true;
         } catch (error) {
           retries++;
@@ -475,8 +538,9 @@ export class HemisSyncService {
 
   /**
    * Sync a single employee with all relationships
+   * @returns Database ID of the employee (created or updated)
    */
-  private async syncEmployee(item: any): Promise<void> {
+  private async syncEmployee(item: any): Promise<number | null> {
     const employee = await this.employeeRepository.findOne({
       where: { hemisId: item.id },
     });
@@ -536,8 +600,161 @@ export class HemisSyncService {
 
     if (employee) {
       await this.employeeRepository.update(employee.id, employeeData);
+      return employee.id;
     } else {
-      await this.employeeRepository.save(employeeData);
+      const savedEmployee = await this.employeeRepository.save(employeeData);
+      return savedEmployee.id;
+    }
+  }
+
+  /**
+   * Sync all semesters from HEMIS
+   */
+  async syncSemesters(): Promise<void> {
+    const startTime = Date.now();
+    
+    this.logger.log('🚀 Starting HEMIS semesters sync...');
+
+    try {
+      // Fetch first page to get total count
+      const firstPageResponse = await this.hemisApiService.fetchSemesters(1, 200);
+      
+      if (!firstPageResponse.success || !firstPageResponse.data) {
+        throw new Error('Failed to fetch semesters from HEMIS API');
+      }
+
+      const totalRecords = firstPageResponse.data.pagination.totalCount;
+      const totalPages = firstPageResponse.data.pagination.pageCount;
+      const limit = 200;
+
+      this.logger.log(`📊 Total semesters to sync: ${totalRecords} (${totalPages} pages)`);
+
+      // Track synced semester IDs
+      const syncedSemesterIds = new Set<number>();
+
+      // Process first page
+      await this.processSemestersBatch(firstPageResponse.data.items, 1, syncedSemesterIds);
+
+      // Process remaining pages with retry logic
+      for (let page = 2; page <= totalPages; page++) {
+        let retries = 0;
+        let success = false;
+
+        while (retries <= this.MAX_RETRIES && !success) {
+          try {
+            const response = await this.hemisApiService.fetchSemesters(page, limit);
+            if (response.success && response.data) {
+              await this.processSemestersBatch(response.data.items, page, syncedSemesterIds);
+              this.logger.log(`✅ Processed page ${page}/${totalPages} - ${syncedSemesterIds.size} semesters synced`);
+              success = true;
+            }
+          } catch (error) {
+            retries++;
+            this.logger.error(`Error processing semesters page ${page} (attempt ${retries}/${this.MAX_RETRIES}): ${error.message}`);
+            
+            // Log the error
+            await this.logSyncError('semester', null, error.message, page);
+            
+            if (retries <= this.MAX_RETRIES) {
+              await new Promise(resolve => setTimeout(resolve, 1000 * retries)); // Exponential backoff
+            }
+          }
+        }
+      }
+
+      // Delete stale semesters
+      await this.deleteStaleSemesters(syncedSemesterIds);
+
+      const endTime = Date.now();
+      this.logger.log(`✅ Semesters sync completed in ${(endTime - startTime) / 1000}s. Processed ${syncedSemesterIds.size} records.`);
+    } catch (error) {
+      this.logger.error(`💥 Semesters sync failed: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Process a batch of semesters with error handling
+   */
+  private async processSemestersBatch(items: any[], page: number, syncedSemesterIds: Set<number>): Promise<void> {
+    for (const item of items) {
+      let retries = 0;
+      let success = false;
+
+      while (retries <= this.MAX_RETRIES && !success) {
+        try {
+          await this.syncSemester(item);
+          syncedSemesterIds.add(item.id);
+          success = true;
+        } catch (error) {
+          retries++;
+          this.logger.error(`Error syncing semester ${item.id} (attempt ${retries}/${this.MAX_RETRIES}): ${error.message}`);
+          
+          if (retries <= this.MAX_RETRIES) {
+            await this.logSyncRetry('semester', item.id, error.message, retries, page, item);
+            await new Promise(resolve => setTimeout(resolve, 500 * retries));
+          } else {
+            await this.logSyncError('semester', item.id, error.message, page, item);
+            success = true; // Skip this record and continue
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Sync a single semester
+   */
+  private async syncSemester(item: any): Promise<void> {
+    if (!item || !item.id) {
+      throw new Error('Invalid semester data: missing id');
+    }
+
+    // Find by hemisId only (unique identifier)
+    let semester = await this.semesterRepository.findOne({
+      where: { hemisId: item.id } as any,
+    });
+
+    // Get or create education year if provided
+    let educationYearId: number | undefined;
+    if (item.education_year) {
+      educationYearId = await this.getOrCreateEducationYear(item.education_year);
+    } else if (item._education_year) {
+      // Fallback: try to find by code
+      const eduYear = await this.educationYearRepository.findOne({
+        where: { code: item._education_year } as any,
+      });
+      educationYearId = eduYear?.id;
+    }
+
+    // Get or create level if provided
+    let levelId: number | undefined;
+    if (item.level) {
+      levelId = await this.getOrCreateLevel(item.level);
+    }
+
+    // Prepare semester data - save all fields as they come from HEMIS (including nulls)
+    const semesterData: Partial<HemisSemester> = {
+      hemisId: item.id,
+      code: item.code ?? null,
+      name: item.name ?? null,
+      curriculum: item._curriculum ?? null,
+      educationYearId: educationYearId ?? null,
+      educationYearCode: item._education_year ?? null,
+      levelId: levelId ?? null,
+      startDate: item.start_date ?? null,
+      endDate: item.end_date ?? null,
+      position: item.position ?? null,
+      active: item.active ?? null,
+      current: item.current ?? null,
+    };
+
+    if (semester) {
+      // Update existing semester
+      await this.semesterRepository.update(semester.id, semesterData);
+    } else {
+      // Create new semester (code can be duplicate - no conflict check needed)
+      await this.semesterRepository.save(semesterData);
     }
   }
 
@@ -545,23 +762,50 @@ export class HemisSyncService {
    * Delete stale records
    */
   private async deleteStaleStudents(syncedStudentIds: Set<number>): Promise<void> {
+    if (syncedStudentIds.size === 0) {
+      this.logger.warn('No synced student IDs, skipping stale students deletion');
+      return;
+    }
+    
     const result = await this.studentRepository
-      .createQueryBuilder('student')
+      .createQueryBuilder()
       .delete()
-      .where('student.hemisId NOT IN (:...ids)', { ids: Array.from(syncedStudentIds) })
+      .where('hemis_id NOT IN (:...ids)', { ids: Array.from(syncedStudentIds) })
       .execute();
 
     this.logger.log(`Deleted ${result.affected || 0} stale students`);
   }
 
   private async deleteStaleEmployees(syncedEmployeeIds: Set<number>): Promise<void> {
+    if (syncedEmployeeIds.size === 0) {
+      this.logger.warn('No synced employee IDs, skipping stale employees deletion');
+      return;
+    }
+    
     const result = await this.employeeRepository
-      .createQueryBuilder('employee')
+      .createQueryBuilder()
       .delete()
-      .where('employee.hemisId NOT IN (:...ids)', { ids: Array.from(syncedEmployeeIds) })
+      .where('hemis_id NOT IN (:...ids)', { ids: Array.from(syncedEmployeeIds) })
       .execute();
 
     this.logger.log(`Deleted ${result.affected || 0} stale employees`);
+  }
+
+  private async deleteStaleSemesters(syncedSemesterIds: Set<number>): Promise<void> {
+    if (syncedSemesterIds.size === 0) {
+      // Don't delete anything if we didn't sync any semesters
+      return;
+    }
+    
+    const result = await this.semesterRepository
+      .createQueryBuilder('semester')
+      .delete()
+      .where('semester.hemisId IS NOT NULL AND semester.hemisId NOT IN (:...ids)', { 
+        ids: Array.from(syncedSemesterIds) 
+      })
+      .execute();
+
+    this.logger.log(`Deleted ${result.affected || 0} stale semesters`);
   }
 
   /**
@@ -721,27 +965,85 @@ export class HemisSyncService {
   }
 
   private async getOrCreateSemester(data: any): Promise<number | undefined> {
-    if (!data || !data.code) return undefined;
+    if (!data) return undefined;
     
-    let semester = await this.semesterRepository.findOne({ 
-      where: { code: data.code } as any 
-    });
-    
-    if (!semester) {
-      const semesterData: any = {
-        code: data.code,
-        name: data.name || '',
-      };
+    // Use hemisId as unique identifier (code can be duplicate for different curricula)
+    if (data.id !== undefined && data.id !== null) {
+      // Find by hemisId only (unique identifier)
+      let semester = await this.semesterRepository.findOne({ 
+        where: { hemisId: data.id } as any 
+      });
       
-      // Save hemis_id only if it exists
-      if (data.id !== undefined && data.id !== null) {
-        semesterData.hemisId = data.id;
+      if (semester) {
+        // Return existing semester ID
+        return semester.id;
       }
       
-      semester = await this.semesterRepository.save(semesterData);
+      // Get or create education year if provided
+      let educationYearId: number | undefined;
+      if (data.education_year) {
+        educationYearId = await this.getOrCreateEducationYear(data.education_year);
+      } else if (data._education_year) {
+        const eduYear = await this.educationYearRepository.findOne({
+          where: { code: data._education_year } as any,
+        });
+        educationYearId = eduYear?.id;
+      }
+
+      // Get or create level if provided
+      let levelId: number | undefined;
+      if (data.level) {
+        levelId = await this.getOrCreateLevel(data.level);
+      }
+
+      // Create new semester - save exactly as it comes from HEMIS (including nulls)
+      const semesterData: Partial<HemisSemester> = {
+        hemisId: data.id,
+        code: data.code ?? null,
+        name: data.name ?? null,
+        curriculum: data._curriculum ?? null,
+        educationYearId: educationYearId ?? undefined,
+        educationYearCode: data._education_year ?? null,
+        levelId: levelId ?? undefined,
+        startDate: data.start_date ?? null,
+        endDate: data.end_date ?? null,
+        position: data.position ?? null,
+        active: data.active ?? null,
+        current: data.current ?? null,
+      };
+
+      const newSemester = await this.semesterRepository.save(semesterData);
+      return newSemester.id;
+    } else {
+      // No hemisId - legacy fallback: try to find by code (but code can be duplicate now)
+      // This is less reliable, but kept for backward compatibility
+      if (data.code) {
+        const semester = await this.semesterRepository.findOne({ 
+          where: { code: data.code } as any,
+          order: { id: 'DESC' } // Get the most recent one if multiple exist
+        });
+        
+        if (semester) {
+          return semester.id;
+        }
+      }
+      
+      // Create new semester without hemisId (legacy case)
+      const semesterData: Partial<HemisSemester> = {
+        code: data.code ?? null,
+        name: data.name ?? null,
+        curriculum: data._curriculum ?? null,
+        educationYearCode: data._education_year ?? null,
+        startDate: data.start_date ?? null,
+        endDate: data.end_date ?? null,
+        position: data.position ?? null,
+        active: data.active ?? null,
+        current: data.current ?? null,
+      };
+
+      const newSemester = await this.semesterRepository.save(semesterData);
+      return newSemester.id;
     }
-    
-    return semester?.id;
   }
 
   private async getOrCreateLevel(data: any): Promise<number | undefined> {

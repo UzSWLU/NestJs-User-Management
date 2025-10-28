@@ -2,55 +2,35 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance } from 'axios';
 
-export interface HemisApiResponse<T> {
-  success: boolean;
-  error: any;
-  data: {
-    items: T[];
-    pagination: {
-      totalCount: number;
-      pageSize: number;
-      pageCount: number;
-      page: number;
-    };
-  };
-  code: number;
-}
-
 @Injectable()
 export class HemisApiService {
   private readonly logger = new Logger(HemisApiService.name);
   private readonly axiosInstance: AxiosInstance;
-  private readonly apiUrl: string;
+  private readonly baseUrl: string;
   private readonly bearerToken: string;
 
   constructor(private configService: ConfigService) {
-    this.apiUrl = this.configService.get<string>('HEMIS_API_URL') || 'https://student.uzswlu.uz';
-    this.bearerToken = this.configService.get<string>('HEMIS_BEARER_TOKEN') || '';
+    this.baseUrl = this.configService.get<string>('HEMIS_API_URL', 'https://student.uzswlu.uz');
+    this.bearerToken = this.configService.get<string>('HEMIS_BEARER_TOKEN', '');
 
     this.axiosInstance = axios.create({
-      baseURL: this.apiUrl,
-      timeout: 60000, // 60 seconds
+      baseURL: this.baseUrl,
       headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
+        'Authorization': `Bearer ${this.bearerToken}`,
+        'Accept': 'application/json',
       },
     });
-
-    // Add bearer token if provided
-    if (this.bearerToken) {
-      this.axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${this.bearerToken}`;
-    }
   }
 
   /**
-   * Get students with offset-based pagination (for hemis.service.ts)
+   * Get all students from HEMIS API
    */
   async getStudents(limit: number = 100, offset: number = 0) {
     try {
       const response = await this.axiosInstance.get('/rest/v1/data/student-list', {
         params: { limit, offset },
       });
+
       return response.data;
     } catch (error) {
       this.logger.error(`Error fetching students: ${error.message}`);
@@ -66,9 +46,12 @@ export class HemisApiService {
       const response = await this.axiosInstance.get(`/rest/v1/data/student-list`, {
         params: { limit: 1, offset: 0 },
       });
+
+      // Find student by ID in the response
       if (response.data?.data?.items) {
         return response.data.data.items.find((item: any) => item.id === studentId);
       }
+
       return null;
     } catch (error) {
       this.logger.error(`Error fetching student by ID: ${error.message}`);
@@ -77,22 +60,7 @@ export class HemisApiService {
   }
 
   /**
-   * Fetch students with pagination (for sync service)
-   */
-  async fetchStudents(page: number = 1, limit: number = 200): Promise<HemisApiResponse<any>> {
-    try {
-      const response = await this.axiosInstance.get(`/rest/v1/data/student-list`, {
-        params: { page, limit },
-      });
-      return response.data;
-    } catch (error) {
-      this.logger.error(`Error fetching students (page ${page}): ${error.message}`);
-      throw error;
-    }
-  }
-
-  /**
-   * Get employees with offset-based pagination (for hemis.service.ts)
+   * Get all employees from HEMIS API
    */
   async getEmployees(type: string = 'all', search?: string, limit: number = 100, offset: number = 0) {
     try {
@@ -104,6 +72,7 @@ export class HemisApiService {
           offset,
         },
       });
+
       return response.data;
     } catch (error) {
       this.logger.error(`Error fetching employees: ${error.message}`);
@@ -117,6 +86,7 @@ export class HemisApiService {
   async getEmployeeById(employeeId?: number, employeeIdNumber?: string) {
     try {
       const searchParam = employeeIdNumber || employeeId?.toString();
+      
       const response = await this.axiosInstance.get('/rest/v1/data/employee-list', {
         params: {
           type: 'all',
@@ -125,9 +95,11 @@ export class HemisApiService {
           offset: 0,
         },
       });
+
       if (response.data?.data?.items && response.data.data.items.length > 0) {
         return response.data.data.items[0];
       }
+
       return null;
     } catch (error) {
       this.logger.error(`Error fetching employee: ${error.message}`);
@@ -136,36 +108,58 @@ export class HemisApiService {
   }
 
   /**
-   * Fetch employees with pagination (for sync service)
+   * Fetch students from HEMIS API (for sync service)
    */
-  async fetchEmployees(
-    type: string = 'all',
-    page: number = 1,
-    limit: number = 200,
-  ): Promise<HemisApiResponse<any>> {
+  async fetchStudents(page: number = 1, limit: number = 200) {
     try {
-      const response = await this.axiosInstance.get(`/rest/v1/data/employee-list`, {
-        params: { type, page, limit },
+      const response = await this.axiosInstance.get('/rest/v1/data/student-list', {
+        params: {
+          page,
+          limit,
+        },
       });
       return response.data;
     } catch (error) {
-      this.logger.error(`Error fetching employees (page ${page}): ${error.message}`);
+      this.logger.error(`Error fetching students: ${error.message}`);
       throw error;
     }
   }
 
   /**
-   * Fetch semesters with pagination
+   * Fetch employees from HEMIS API (for sync service)
    */
-  async fetchSemesters(page: number = 1, limit: number = 200): Promise<HemisApiResponse<any>> {
+  async fetchEmployees(type: string = 'all', page: number = 1, limit: number = 200) {
     try {
-      const response = await this.axiosInstance.get(`/rest/v1/data/semester-list`, {
-        params: { page, limit },
+      const response = await this.axiosInstance.get('/rest/v1/data/employee-list', {
+        params: {
+          type,
+          page,
+          limit,
+        },
       });
       return response.data;
     } catch (error) {
-      this.logger.error(`Error fetching semesters (page ${page}): ${error.message}`);
+      this.logger.error(`Error fetching employees: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Fetch semesters from HEMIS API
+   */
+  async fetchSemesters(page: number = 1, limit: number = 200) {
+    try {
+      const response = await this.axiosInstance.get('/rest/v1/data/semester-list', {
+        params: {
+          page,
+          limit,
+        },
+      });
+      return response.data;
+    } catch (error) {
+      this.logger.error(`Error fetching semesters: ${error.message}`);
       throw error;
     }
   }
 }
+

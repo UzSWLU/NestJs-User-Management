@@ -29,6 +29,11 @@ export class UserOAuthAccount {
   @Column({ type: 'json', nullable: true })
   oauth_data: any; // Raw OAuth user data from provider
 
+  // Link to provider-specific profile (hemis_employees.id, hemis_students.id, etc.)
+  // Provider orqali qaysi jadval ekanligini aniqlash mumkin
+  @Column({ name: 'profile_id', type: 'int', nullable: true })
+  profileId: number | null; // Foreign key: hemis_employees.id (hemis provider), hemis_students.id (student provider), etc.
+
   @Column({ nullable: true })
   last_login: Date; // Last time user logged in via this OAuth provider
 

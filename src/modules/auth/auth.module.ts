@@ -20,6 +20,8 @@ import { UserAutoRoleRule } from '../../database/entities/oauth/user-auto-role-r
 import { UserMergeHistory } from '../../database/entities/oauth/user-merge-history.entity';
 import { UserProfile } from '../../database/entities/oauth/user-profile.entity';
 import { UserProfilePreference } from '../../database/entities/oauth/user-profile-preference.entity';
+import { HemisEmployee } from '../../database/entities/hemis/employee.entity';
+import { HemisStudent } from '../../database/entities/hemis/student.entity';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
 @Module({
@@ -51,6 +53,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
       UserMergeHistory,
       UserProfile,
       UserProfilePreference,
+      HemisEmployee,
+      HemisStudent,
     ]),
   ],
   controllers: [AuthController],

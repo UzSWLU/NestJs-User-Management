@@ -46,8 +46,8 @@ services:
     environment:
       PMA_HOST: db
       PMA_PORT: 3306
-#      PMA_USER: ${DB_USER}
-#      PMA_PASSWORD: ${DB_PASSWORD}
+      PMA_USER: ${DB_USER}
+      PMA_PASSWORD: ${DB_PASSWORD}
     ports:
       - "${PMA_PORT}:80"
     networks:

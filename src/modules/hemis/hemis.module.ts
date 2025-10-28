@@ -1,15 +1,19 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { HemisController } from './controllers/hemis.controller';
-import { HemisSyncService } from './services/hemis-sync.service';
+import { HemisController } from './hemis.controller';
+import { HemisService } from './hemis.service';
 import { HemisApiService } from './services/hemis-api.service';
 import { HemisProgressService } from './services/hemis-progress.service';
-import { HemisScheduledSyncService } from './services/hemis-scheduled-sync.service';
+import { HemisSyncService } from './services/hemis-sync.service';
+import { OAuthAccountSyncService } from './services/oauth-account-sync.service';
+import { HemisScheduler } from './hemis.scheduler';
 
-// Entities
-import { HemisSyncLog } from '../../database/entities/hemis/sync-log.entity';
+// Main entities
 import { HemisStudent } from '../../database/entities/hemis/student.entity';
 import { HemisEmployee } from '../../database/entities/hemis/employee.entity';
+import { HemisSyncLog } from '../../database/entities/hemis/sync-log.entity';
+
+// Lookup entities
 import { HemisGender } from '../../database/entities/hemis/gender.entity';
 import { HemisUniversity } from '../../database/entities/hemis/university.entity';
 import { HemisDepartment } from '../../database/entities/hemis/department.entity';
@@ -39,12 +43,24 @@ import { HemisDepartmentStructureType } from '../../database/entities/hemis/depa
 import { HemisDepartmentLocalityType } from '../../database/entities/hemis/department-locality-type.entity';
 import { HemisEducationLang } from '../../database/entities/hemis/education-lang.entity';
 
+// OAuth entities
+import { UserOAuthAccount } from '../../database/entities/oauth/user-oauth-account.entity';
+import { OAuthProvider } from '../../database/entities/oauth/oauth-provider.entity';
+import { UserMergeHistory } from '../../database/entities/oauth/user-merge-history.entity';
+// User entities for OAuthAccountSyncService
+import { User } from '../../database/entities/core/user.entity';
+import { UserRole } from '../../database/entities/core/user-role.entity';
+import { Role } from '../../database/entities/core/role.entity';
+import { Company } from '../../database/entities/core/company.entity';
+
 @Module({
   imports: [
     TypeOrmModule.forFeature([
-      HemisSyncLog,
+      // Main entities
       HemisStudent,
       HemisEmployee,
+      HemisSyncLog,
+      // Lookup entities
       HemisGender,
       HemisUniversity,
       HemisDepartment,
@@ -73,11 +89,27 @@ import { HemisEducationLang } from '../../database/entities/hemis/education-lang
       HemisDepartmentStructureType,
       HemisDepartmentLocalityType,
       HemisEducationLang,
+      // OAuth entities for OAuthAccountSyncService
+      UserOAuthAccount,
+      OAuthProvider,
+      UserMergeHistory,
+      // User entities for OAuthAccountSyncService
+      User,
+      UserRole,
+      Role,
+      Company,
     ]),
   ],
   controllers: [HemisController],
-  providers: [HemisSyncService, HemisApiService, HemisProgressService, HemisScheduledSyncService],
-  exports: [HemisSyncService, HemisApiService, HemisProgressService, HemisScheduledSyncService],
+  providers: [
+    HemisService,
+    HemisApiService,
+    HemisProgressService,
+    HemisSyncService,
+    OAuthAccountSyncService,
+    HemisScheduler,
+  ],
+  exports: [HemisService, HemisApiService, HemisSyncService],
 })
 export class HemisModule {}
 

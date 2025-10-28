@@ -15,6 +15,8 @@ import { UserMergeHistory } from '../../../database/entities/oauth/user-merge-hi
 import { UserAuditLog } from '../../../database/entities/auth/user-audit-log.entity';
 import { UserProfile } from '../../../database/entities/oauth/user-profile.entity';
 import { UserProfilePreference } from '../../../database/entities/oauth/user-profile-preference.entity';
+import { HemisEmployee } from '../../../database/entities/hemis/employee.entity';
+import { HemisStudent } from '../../../database/entities/hemis/student.entity';
 import axios from 'axios';
 import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
@@ -42,6 +44,10 @@ export class OAuthService {
     private readonly preferenceRepo: Repository<UserProfilePreference>,
     @InjectRepository(UserAuditLog)
     private readonly auditLogRepo: Repository<UserAuditLog>,
+    @InjectRepository(HemisEmployee)
+    private readonly hemisEmployeeRepo: Repository<HemisEmployee>,
+    @InjectRepository(HemisStudent)
+    private readonly hemisStudentRepo: Repository<HemisStudent>,
   ) {}
 
   /**
@@ -232,6 +238,9 @@ export class OAuthService {
     ipAddress?: string,
     userAgent?: string,
   ): Promise<User> {
+    console.log(`🔵 findOrCreateUser called for provider: ${provider.name}`);
+    console.log(`🔵 OAuth data keys: ${Object.keys(oauthUserData || {}).join(', ')}`);
+    console.log(`🔵 OAuth data sample: ${JSON.stringify(oauthUserData || {}).substring(0, 500)}`);
     // Extract user data from provider response
     const providerUserId = this.extractProviderUserId(
       provider.name,
@@ -244,6 +253,7 @@ export class OAuthService {
     const avatar = this.extractAvatar(provider.name, oauthUserData);
 
     // Check if OAuth account already exists
+    console.log(`[DEBUG] Searching for existing OAuth account - provider: ${provider.name}, provider.id: ${provider.id}, providerUserId: ${providerUserId}`);
     const existingOAuthAccount = await this.oauthAccountRepo.findOne({
       where: {
         provider: { id: provider.id },
@@ -251,8 +261,10 @@ export class OAuthService {
       },
       relations: ['user'],
     });
+    console.log(`[DEBUG] Existing OAuth account search result: ${existingOAuthAccount ? `FOUND (ID: ${existingOAuthAccount.id}, userId: ${existingOAuthAccount.user?.id})` : 'NOT FOUND'}`);
 
     if (existingOAuthAccount) {
+      console.log(`[DEBUG] Existing OAuth account found - ID: ${existingOAuthAccount.id}, provider_user_id: ${existingOAuthAccount.provider_user_id}, profileId: ${existingOAuthAccount.profileId}`);
       let user = existingOAuthAccount.user;
 
       // Check if user is blocked (merged user)
@@ -295,10 +307,218 @@ export class OAuthService {
         }
       }
 
-      // Update last_login and OAuth data
-      existingOAuthAccount.oauth_data = oauthUserData;
+      // Try to link with HEMIS sync data (always try to update if needed)
+      let profileId: number | null = existingOAuthAccount.profileId;
+      let enrichedOAuthData = { ...oauthUserData };
+
+      // Always try to link HEMIS employee (will update profileId if found, even if already set)
+      if (provider.name === 'hemis') {
+        try {
+          // HEMIS OAuth data'da employee_id mavjud bo'lsa, uni ishlatamiz
+          // employee_id hemis_employees.hemis_id ga mos keladi
+          // id esa boshqa ID (masalan, OAuth ID yoki user ID)
+          console.log(`🔍 Searching existing HEMIS employee - OAuth data keys: ${Object.keys(oauthUserData || {}).join(', ')}`);
+          console.log(`🔍 employee_id: ${oauthUserData.employee_id}, id: ${oauthUserData.id}, providerUserId: ${providerUserId}`);
+          
+          // employee_id ustunlik beriladi, chunki u hemis_employees.hemis_id ga mos keladi
+          let searchHemisId: number | null = null;
+          if (oauthUserData.employee_id !== undefined && oauthUserData.employee_id !== null) {
+            searchHemisId = parseInt(oauthUserData.employee_id.toString(), 10);
+            console.log(`🔍 Using employee_id as searchHemisId: ${searchHemisId}`);
+          } else {
+            console.log(`⚠️  employee_id not found in OAuth data, falling back to providerUserId`);
+            searchHemisId = parseInt(providerUserId, 10);
+          }
+          
+          console.log(`🔍 Existing search hemisId: ${searchHemisId} (valid: ${!isNaN(searchHemisId)})`);
+          
+          if (!isNaN(searchHemisId) && searchHemisId !== null) {
+            let hemisEmployee: any = null;
+            
+            // First, try to find WITHOUT relations to avoid TypeORM relation errors
+            try {
+              hemisEmployee = await this.hemisEmployeeRepo.findOne({
+                where: { hemisId: searchHemisId } as any,
+                // No relations first - avoid errors
+              });
+              console.log(`[DEBUG] Found employee WITHOUT relations: ${hemisEmployee ? `DB ID ${hemisEmployee.id}, hemisId ${hemisEmployee.hemisId}` : 'NOT FOUND'}`);
+            } catch (findError: any) {
+              console.error(`[ERROR] Error finding employee WITHOUT relations: ${findError?.message || String(findError)}`);
+              hemisEmployee = null;
+            }
+            
+            // If found, try to load relations separately (optional)
+            if (hemisEmployee) {
+              try {
+                // Try to reload with relations if needed
+                const employeeWithRelations = await this.hemisEmployeeRepo.findOne({
+                  where: { hemisId: searchHemisId } as any,
+                  relations: ['department', 'gender'],
+                });
+                if (employeeWithRelations) {
+                  hemisEmployee = employeeWithRelations;
+                  console.log(`[DEBUG] Successfully loaded employee WITH relations`);
+                }
+              } catch (relError: any) {
+                console.error(`[WARN] Could not load relations, using employee without relations: ${relError?.message || String(relError)}`);
+                // Keep hemisEmployee without relations - that's fine
+              }
+            }
+            
+            console.log(`[DEBUG] Final employee result: ${hemisEmployee ? `DB ID ${hemisEmployee.id}, hemisId ${hemisEmployee.hemisId}` : 'NOT FOUND'}`);
+
+            if (hemisEmployee) {
+              profileId = hemisEmployee.id;
+              enrichedOAuthData = {
+                ...oauthUserData,
+                hemis_sync_data: {
+                  employee: {
+                    id: hemisEmployee.id,
+                    hemisId: hemisEmployee.hemisId,
+                    fullName: hemisEmployee.fullName,
+                    firstName: hemisEmployee.firstName,
+                    secondName: hemisEmployee.secondName,
+                    thirdName: hemisEmployee.thirdName,
+                    employeeIdNumber: hemisEmployee.employeeIdNumber,
+                    birthDate: hemisEmployee.birthDate,
+                    email: oauthUserData.email || null,
+                    phone: oauthUserData.phone || null,
+                    image: hemisEmployee.image,
+                    imageFull: hemisEmployee.imageFull,
+                  },
+                },
+              };
+              console.log(`✅ Linked existing HEMIS OAuth account to employee ${hemisEmployee.id} (hemisId: ${searchHemisId})`);
+            } else {
+              console.log(`⚠️  Existing employee not found for hemisId: ${searchHemisId}`);
+            }
+          }
+        } catch (error: any) {
+          const errorMsg = error?.message || String(error || '');
+          console.error(`⚠️  Error linking existing HEMIS employee: ${errorMsg}`);
+          console.error(`⚠️  Error stack: ${error?.stack || 'No stack trace'}`);
+          console.error(`⚠️  Error message includes 'university': ${errorMsg.includes('university')}`);
+          console.error(`⚠️  Error message includes 'Property': ${errorMsg.includes('Property')}`);
+          
+          // Try to find employee without relations if relations caused the error
+          if (errorMsg.includes('university') || errorMsg.includes('Property') || errorMsg.includes('not found')) {
+            console.log(`⚠️  Trying to find employee without relations...`);
+            try {
+              const searchHemisId = oauthUserData.employee_id 
+                ? parseInt(oauthUserData.employee_id.toString(), 10)
+                : parseInt(providerUserId, 10);
+              
+              if (!isNaN(searchHemisId)) {
+                const hemisEmployeeWithoutRelations = await this.hemisEmployeeRepo.findOne({
+                  where: { hemisId: searchHemisId } as any,
+                  // No relations - just get the ID
+                });
+
+                if (hemisEmployeeWithoutRelations) {
+                  profileId = hemisEmployeeWithoutRelations.id;
+                  console.log(`✅ Found employee without relations - profileId: ${profileId}`);
+                  
+                  // Build enriched data manually without accessing relations
+                  enrichedOAuthData = {
+                    ...oauthUserData,
+                    hemis_sync_data: {
+                      employee: {
+                        id: hemisEmployeeWithoutRelations.id,
+                        hemisId: hemisEmployeeWithoutRelations.hemisId,
+                        fullName: hemisEmployeeWithoutRelations.fullName,
+                        firstName: hemisEmployeeWithoutRelations.firstName,
+                        secondName: hemisEmployeeWithoutRelations.secondName,
+                        thirdName: hemisEmployeeWithoutRelations.thirdName,
+                        employeeIdNumber: hemisEmployeeWithoutRelations.employeeIdNumber,
+                        birthDate: hemisEmployeeWithoutRelations.birthDate,
+                        email: oauthUserData.email || null,
+                        phone: oauthUserData.phone || null,
+                        image: hemisEmployeeWithoutRelations.image,
+                        imageFull: hemisEmployeeWithoutRelations.imageFull,
+                      },
+                    },
+                  };
+                } else {
+                  console.log(`⚠️  Employee not found even without relations`);
+                }
+              }
+            } catch (retryError: any) {
+              console.error(`⚠️  Error in retry (without relations): ${retryError.message}`);
+            }
+          }
+          
+          console.error(`⚠️  This error is caught and will not block login. ProfileId will remain: ${profileId}`);
+          // Continue - don't block login even if linking fails
+        }
+      } else if (provider.name === 'student' || provider.name === 'student_portal') {
+        try {
+          // Student OAuth data'da id to'g'ridan-to'g'ri hemis_students.hemis_id ga mos keladi
+          const searchHemisId = oauthUserData.id 
+            ? parseInt(oauthUserData.id.toString(), 10)
+            : parseInt(providerUserId, 10);
+          
+          if (!isNaN(searchHemisId)) {
+            const hemisStudent = await this.hemisStudentRepo.findOne({
+              where: { hemisId: searchHemisId } as any,
+              relations: ['department', 'specialty', 'group', 'university', 'gender', 'semester'],
+            });
+
+            if (hemisStudent) {
+              profileId = hemisStudent.id;
+              enrichedOAuthData = {
+                ...oauthUserData,
+                hemis_sync_data: {
+                  student: {
+                    id: hemisStudent.id,
+                    hemisId: hemisStudent.hemisId,
+                    fullName: hemisStudent.fullName,
+                    firstName: hemisStudent.firstName,
+                    secondName: hemisStudent.secondName,
+                    thirdName: hemisStudent.thirdName,
+                    studentIdNumber: hemisStudent.studentIdNumber,
+                    birthDate: hemisStudent.birthDate,
+                    email: oauthUserData.email || null,
+                    phone: oauthUserData.phone || null,
+                    image: hemisStudent.image,
+                    imageFull: hemisStudent.imageFull,
+                    avgGpa: hemisStudent.avgGpa,
+                    avgGrade: hemisStudent.avgGrade,
+                    totalCredit: hemisStudent.totalCredit,
+                  },
+                },
+              };
+              console.log(`✅ Linked existing Student OAuth account to student ${hemisStudent.id} (hemisId: ${searchHemisId})`);
+            }
+          }
+        } catch (error) {
+          console.error(`⚠️  Error linking HEMIS student: ${error.message}`);
+        }
+      } else if (profileId) {
+        // Update existing sync data if already linked
+        enrichedOAuthData = {
+          ...oauthUserData,
+          hemis_sync_data: existingOAuthAccount.oauth_data?.hemis_sync_data || null,
+        };
+      }
+
+      // Update last_login, OAuth data, and profile link
+      console.log(`💾 Updating existing OAuth account - Current profileId: ${existingOAuthAccount.profileId}, New profileId: ${profileId}`);
+      console.log(`💾 OAuth data keys before update: ${Object.keys(existingOAuthAccount.oauth_data || {}).join(', ')}`);
+      existingOAuthAccount.oauth_data = enrichedOAuthData;
+      existingOAuthAccount.profileId = profileId;
       existingOAuthAccount.last_login = new Date();
-      await this.oauthAccountRepo.save(existingOAuthAccount);
+      console.log(`💾 Before save - profileId in memory: ${existingOAuthAccount.profileId}, oauth_data exists: ${!!existingOAuthAccount.oauth_data}`);
+      
+      // Force save all fields explicitly
+      await this.oauthAccountRepo.update(existingOAuthAccount.id, {
+        oauth_data: enrichedOAuthData,
+        profileId: profileId,
+        last_login: new Date(),
+      });
+      
+      // Reload to verify
+      const savedAccount = await this.oauthAccountRepo.findOne({ where: { id: existingOAuthAccount.id } });
+      console.log(`💾 Saved OAuth account - profileId: ${savedAccount?.profileId}, id: ${savedAccount?.id}, last_login: ${savedAccount?.last_login}`);
 
       // Update user profile with latest data from provider (skip duplicates)
       let userUpdated = false;
@@ -403,15 +623,237 @@ export class OAuthService {
       }
     }
 
+    // Try to link with HEMIS sync data (for hemis and student providers)
+    console.log(`[DEBUG] New user path - trying to link HEMIS data for provider: ${provider.name}`);
+    let profileId: number | null = null;
+    let enrichedOAuthData = { ...oauthUserData };
+
+    if (provider.name === 'hemis') {
+      // Find employee in hemis_employees by hemisId (employee_id ustunlik beriladi)
+      try {
+        // HEMIS OAuth data'da employee_id mavjud bo'lsa, uni ishlatamiz (bu hemis_employees.hemis_id ga mos keladi)
+        // Aks holda provider_user_id (id) ni ishlatamiz
+        console.log(`🔍 Searching HEMIS employee - OAuth data keys: ${Object.keys(oauthUserData).join(', ')}`);
+        console.log(`🔍 employee_id: ${oauthUserData.employee_id}, providerUserId: ${providerUserId}`);
+        
+        const searchHemisId = oauthUserData.employee_id 
+          ? parseInt(oauthUserData.employee_id.toString(), 10)
+          : parseInt(providerUserId, 10);
+        
+        console.log(`🔍 Search hemisId: ${searchHemisId} (from ${oauthUserData.employee_id ? 'employee_id' : 'id'})`);
+        
+        if (!isNaN(searchHemisId)) {
+          let hemisEmployee: any = null;
+          
+          // First, try to find WITHOUT relations to avoid TypeORM relation errors
+          try {
+            hemisEmployee = await this.hemisEmployeeRepo.findOne({
+              where: { hemisId: searchHemisId } as any,
+              // No relations first - avoid errors
+            });
+            console.log(`[DEBUG] Found employee WITHOUT relations (new user): ${hemisEmployee ? `DB ID ${hemisEmployee.id}, hemisId ${hemisEmployee.hemisId}` : 'NOT FOUND'}`);
+          } catch (findError: any) {
+            console.error(`[ERROR] Error finding employee WITHOUT relations (new user): ${findError?.message || String(findError)}`);
+            hemisEmployee = null;
+          }
+          
+          // If found, try to load relations separately (optional)
+          if (hemisEmployee) {
+            try {
+              const employeeWithRelations = await this.hemisEmployeeRepo.findOne({
+                where: { hemisId: searchHemisId } as any,
+                relations: ['department', 'gender'],
+              });
+              if (employeeWithRelations) {
+                hemisEmployee = employeeWithRelations;
+                console.log(`[DEBUG] Successfully loaded employee WITH relations (new user)`);
+              }
+            } catch (relError: any) {
+              console.error(`[WARN] Could not load relations (new user), using without: ${relError?.message || String(relError)}`);
+              // Keep hemisEmployee without relations - that's fine
+            }
+          }
+
+          console.log(`🔍 Found employee: ${hemisEmployee ? `ID ${hemisEmployee.id}, hemisId ${hemisEmployee.hemisId}` : 'NOT FOUND'}`);
+
+          if (hemisEmployee) {
+            profileId = hemisEmployee.id;
+            // Enrich oauth_data with full employee data from sync
+            enrichedOAuthData = {
+              ...oauthUserData,
+              hemis_sync_data: {
+                employee: {
+                  id: hemisEmployee.id,
+                  hemisId: hemisEmployee.hemisId,
+                  fullName: hemisEmployee.fullName,
+                  firstName: hemisEmployee.firstName,
+                  secondName: hemisEmployee.secondName,
+                  thirdName: hemisEmployee.thirdName,
+                  employeeIdNumber: hemisEmployee.employeeIdNumber,
+                  birthDate: hemisEmployee.birthDate,
+                  email: oauthUserData.email || null,
+                  phone: oauthUserData.phone || null,
+                  image: hemisEmployee.image,
+                  imageFull: hemisEmployee.imageFull,
+                  // Include relation data if available
+                  department: hemisEmployee.department ? {
+                    id: hemisEmployee.department.id,
+                    code: hemisEmployee.department.code,
+                    name: hemisEmployee.department.name,
+                  } : null,
+                },
+              },
+            };
+            console.log(`✅ Linked HEMIS OAuth account to employee ${hemisEmployee.id} (hemisId: ${searchHemisId}, provider_user_id: ${providerUserId})`);
+          } else {
+            console.log(`⚠️  HEMIS employee not found in sync data for hemisId: ${searchHemisId} (searched via ${oauthUserData.employee_id ? 'employee_id' : 'id'})`);
+          }
+        } else {
+          console.log(`⚠️  Invalid hemisId for search: ${searchHemisId} (employee_id: ${oauthUserData.employee_id}, providerUserId: ${providerUserId})`);
+        }
+      } catch (error: any) {
+        const errorMsg = error?.message || String(error || '');
+        console.error(`⚠️  Error linking HEMIS employee: ${errorMsg}`);
+        console.error(`⚠️  Error stack: ${error?.stack || 'No stack trace'}`);
+        console.error(`[DEBUG] Error message includes 'university': ${errorMsg.includes('university')}`);
+        console.error(`[DEBUG] Error message includes 'Property': ${errorMsg.includes('Property')}`);
+        
+        // Try to find employee without relations if relations caused the error
+        if (errorMsg.includes('university') || errorMsg.includes('Property') || errorMsg.includes('not found')) {
+          console.log(`[DEBUG] Trying to find employee without relations (new user path)...`);
+          try {
+            const searchHemisId = oauthUserData.employee_id 
+              ? parseInt(oauthUserData.employee_id.toString(), 10)
+              : parseInt(providerUserId, 10);
+            
+            if (!isNaN(searchHemisId)) {
+              const hemisEmployeeWithoutRelations = await this.hemisEmployeeRepo.findOne({
+                where: { hemisId: searchHemisId } as any,
+                // No relations - just get the ID
+              });
+
+              if (hemisEmployeeWithoutRelations) {
+                profileId = hemisEmployeeWithoutRelations.id;
+                console.log(`[DEBUG] Found employee without relations (new user) - profileId: ${profileId}`);
+                
+                // Build enriched data manually without accessing relations
+                enrichedOAuthData = {
+                  ...oauthUserData,
+                  hemis_sync_data: {
+                    employee: {
+                      id: hemisEmployeeWithoutRelations.id,
+                      hemisId: hemisEmployeeWithoutRelations.hemisId,
+                      fullName: hemisEmployeeWithoutRelations.fullName,
+                      firstName: hemisEmployeeWithoutRelations.firstName,
+                      secondName: hemisEmployeeWithoutRelations.secondName,
+                      thirdName: hemisEmployeeWithoutRelations.thirdName,
+                      employeeIdNumber: hemisEmployeeWithoutRelations.employeeIdNumber,
+                      birthDate: hemisEmployeeWithoutRelations.birthDate,
+                      email: oauthUserData.email || null,
+                      phone: oauthUserData.phone || null,
+                      image: hemisEmployeeWithoutRelations.image,
+                      imageFull: hemisEmployeeWithoutRelations.imageFull,
+                    },
+                  },
+                };
+              } else {
+                console.log(`[DEBUG] Employee not found even without relations (new user)`);
+              }
+            }
+          } catch (retryError: any) {
+            console.error(`[ERROR] Error in retry (without relations, new user): ${retryError?.message || String(retryError)}`);
+          }
+        }
+        console.log(`[DEBUG] New user path - Final profileId after error handling: ${profileId}`);
+      }
+    } else if (provider.name === 'student' || provider.name === 'student_portal') {
+      // Find student in hemis_students by hemisId
+      // Student provider'da id to'g'ridan-to'g'ri hemis_students.hemis_id ga mos keladi
+      try {
+        // Student OAuth data'da id field'i hemis_students.hemis_id ga to'g'ri keladi
+        const searchHemisId = oauthUserData.id 
+          ? parseInt(oauthUserData.id.toString(), 10)
+          : parseInt(providerUserId, 10);
+        
+        if (!isNaN(searchHemisId)) {
+          const hemisStudent = await this.hemisStudentRepo.findOne({
+            where: { hemisId: searchHemisId } as any,
+            relations: ['department', 'specialty', 'group', 'university', 'gender', 'semester'],
+          });
+
+          if (hemisStudent) {
+            profileId = hemisStudent.id;
+            // Enrich oauth_data with full student data from sync
+            enrichedOAuthData = {
+              ...oauthUserData,
+              hemis_sync_data: {
+                student: {
+                  id: hemisStudent.id,
+                  hemisId: hemisStudent.hemisId,
+                  fullName: hemisStudent.fullName,
+                  firstName: hemisStudent.firstName,
+                  secondName: hemisStudent.secondName,
+                  thirdName: hemisStudent.thirdName,
+                  studentIdNumber: hemisStudent.studentIdNumber,
+                  birthDate: hemisStudent.birthDate,
+                  email: oauthUserData.email || null,
+                  phone: oauthUserData.phone || null,
+                  image: hemisStudent.image,
+                  imageFull: hemisStudent.imageFull,
+                  avgGpa: hemisStudent.avgGpa,
+                  avgGrade: hemisStudent.avgGrade,
+                  totalCredit: hemisStudent.totalCredit,
+                  // Include relation data if available
+                  department: hemisStudent.department ? {
+                    id: hemisStudent.department.id,
+                    code: hemisStudent.department.code,
+                    name: hemisStudent.department.name,
+                  } : null,
+                  specialty: hemisStudent.specialty ? {
+                    id: hemisStudent.specialty.id,
+                    code: hemisStudent.specialty.code,
+                    name: hemisStudent.specialty.name,
+                  } : null,
+                  group: hemisStudent.group ? {
+                    id: hemisStudent.group.id,
+                    name: hemisStudent.group.name,
+                  } : null,
+                  university: hemisStudent.university ? {
+                    id: hemisStudent.university.id,
+                    code: hemisStudent.university.code,
+                    name: hemisStudent.university.name,
+                  } : null,
+                  semester: hemisStudent.semester ? {
+                    id: hemisStudent.semester.id,
+                    hemisId: hemisStudent.semester.hemisId,
+                    code: hemisStudent.semester.code,
+                    name: hemisStudent.semester.name,
+                  } : null,
+                },
+              },
+            };
+            console.log(`✅ Linked Student OAuth account to student ${hemisStudent.id} (hemisId: ${searchHemisId}, provider_user_id: ${providerUserId})`);
+          } else {
+            console.log(`⚠️  HEMIS student not found in sync data for hemisId: ${searchHemisId} (searched via id)`);
+          }
+        }
+      } catch (error) {
+        console.error(`⚠️  Error linking HEMIS student: ${error.message}`);
+      }
+    }
+
     // Create OAuth account link
+    console.log(`[DEBUG] Creating new OAuth account - profileId: ${profileId}, provider_user_id: ${providerUserId}`);
     const oauthAccount = this.oauthAccountRepo.create({
       user: user,
       provider: provider,
       provider_user_id: providerUserId,
-      oauth_data: oauthUserData,
+      oauth_data: enrichedOAuthData, // Use enriched data with HEMIS sync info
+      profileId: profileId, // Single profile_id field (hemis_employees.id or hemis_students.id)
       last_login: new Date(),
     });
     await this.oauthAccountRepo.save(oauthAccount);
+    console.log(`[DEBUG] Created new OAuth account - ID: ${oauthAccount.id}, profileId: ${oauthAccount.profileId}`);
 
     return user;
   }
@@ -455,12 +897,43 @@ export class OAuthService {
         const targetUser = await this.userRepo.findOne({
           where: { id: userId, deleted_at: IsNull() },
         });
-        const oldUser = existingOAuthAccount.user;
+        let oldUser = existingOAuthAccount.user;
 
         if (!targetUser) {
           throw new NotFoundException(
             `Target user with ID ${userId} not found`,
           );
+        }
+
+        // IMPORTANT: Check if oldUser is already merged to another user
+        // If so, we should merge to the main user of that merge chain
+        if (oldUser.status === 'blocked') {
+          const existingMerge = await this.mergeHistoryRepo.findOne({
+            where: { merged_user: { id: oldUser.id } },
+            relations: ['main_user'],
+          });
+          
+          if (existingMerge && existingMerge.main_user) {
+            // oldUser already merged to another user - use that main user instead
+            const previousMainUser = existingMerge.main_user;
+            console.warn(
+              `⚠️  User ${oldUser.id} is already merged to user ${previousMainUser.id}. ` +
+              `Transferring OAuth account directly to target user ${targetUser.id} instead.`,
+            );
+            // If targetUser is the same as previousMainUser, no merge needed
+            if (previousMainUser.id === targetUser.id) {
+              console.log(`   ℹ️  Target user is already the main user - just updating OAuth account`);
+              existingOAuthAccount.user = targetUser;
+              existingOAuthAccount.oauth_data = oauthUserData;
+              existingOAuthAccount.last_login = new Date();
+              await this.oauthAccountRepo.save(existingOAuthAccount);
+              console.log(`✅ OAuth account updated (already merged to this user)`);
+              return;
+            }
+            // Otherwise, we'll merge previousMainUser to targetUser
+            oldUser = previousMainUser;
+            console.log(`   🔄 Will merge previous main user ${oldUser.id} to target user ${targetUser.id}`);
+          }
         }
 
         console.log(`🔄 Merging accounts:`);
@@ -532,16 +1005,34 @@ export class OAuthService {
           await this.userRoleRepo.remove(oldRole);
         }
 
-        // Create merge history record
-        const mergeHistory = this.mergeHistoryRepo.create({
-          main_user: targetUser,
-          merged_user: oldUser,
+        // Check if merge history already exists (to prevent duplicates)
+        let mergeHistory = await this.mergeHistoryRepo.findOne({
+          where: {
+            main_user: { id: targetUser.id },
+            merged_user: { id: oldUser.id },
+          },
         });
-        await this.mergeHistoryRepo.save(mergeHistory);
-        console.log(`   📝 Merge history recorded (ID: ${mergeHistory.id})`);
+
+        if (!mergeHistory) {
+          // Create merge history record only if it doesn't exist
+          mergeHistory = this.mergeHistoryRepo.create({
+            main_user: targetUser,
+            merged_user: oldUser,
+          });
+          await this.mergeHistoryRepo.save(mergeHistory);
+          console.log(`   📝 Merge history recorded (ID: ${mergeHistory.id})`);
+        } else {
+          console.log(`   ℹ️  Merge history already exists (ID: ${mergeHistory.id}) - skipping duplicate creation`);
+        }
 
         // Block old user (NO soft delete - user saqlanadi!)
+        // IMPORTANT: Only change status, keep deleted_at as NULL!
         oldUser.status = 'blocked'; // Block the merged user
+        // Explicitly ensure deleted_at remains NULL (don't modify it)
+        // Note: TypeORM nullable fields can be null even if TypeScript type is Date
+        if (oldUser.deleted_at != null) {
+          (oldUser as any).deleted_at = null;
+        }
         await this.userRepo.save(oldUser);
         console.log(
           `   🔒 Blocked old user ${oldUser.id} (${oldUser.username}) - user saqlanadi`,

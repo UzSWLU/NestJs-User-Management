@@ -41,6 +41,20 @@ export class UserMergeService {
       throw new NotFoundException(`Merged user with ID ${dto.mergedUserId} not found`);
     }
 
+    // Check if merge history already exists (to prevent duplicates)
+    const existingMerge = await this.mergeHistoryRepo.findOne({
+      where: {
+        main_user: { id: dto.mainUserId },
+        merged_user: { id: dto.mergedUserId },
+      },
+    });
+
+    if (existingMerge) {
+      throw new BadRequestException(
+        `User ${dto.mergedUserId} is already merged to user ${dto.mainUserId}`,
+      );
+    }
+
     // Create merge history record
     const mergeHistory = this.mergeHistoryRepo.create({
       main_user: mainUser,
@@ -49,7 +63,13 @@ export class UserMergeService {
     const saved = await this.mergeHistoryRepo.save(mergeHistory);
 
     // Block merged user (NOT soft delete - user saqlanadi!)
+    // IMPORTANT: Only change status, keep deleted_at as NULL!
     mergedUser.status = 'blocked';
+    // Explicitly ensure deleted_at remains NULL
+    // Note: TypeORM nullable fields can be null even if TypeScript type is Date
+    if (mergedUser.deleted_at != null) {
+      (mergedUser as any).deleted_at = null;
+    }
     await this.userRepo.save(mergedUser);
 
     // Log merge event for both users
